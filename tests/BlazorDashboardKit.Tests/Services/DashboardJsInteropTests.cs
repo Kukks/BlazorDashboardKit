@@ -1,30 +1,114 @@
 using BlazorDashboardKit.Services;
-using Bunit;
 using Microsoft.JSInterop;
 using Xunit;
 
 namespace BlazorDashboardKit.Tests.Services;
 
-public class DashboardJsInteropTests : TestContext
+/// <summary>
+/// <see cref="DashboardJsInterop"/> is a plain class whose only dependency is
+/// <see cref="IJSRuntime"/>, so it is unit-tested with hand-written fakes rather
+/// than bunit's <c>TestContext</c> / JS-module-mock machinery (the latter
+/// reproducibly hangs the VSTest host inside its module-mock code).
+/// </summary>
+public class DashboardJsInteropTests
 {
-    [Fact]
-    public async Task InitGrid_NoOps_When_Not_Interactive()
+    /// <summary>
+    /// Records every <c>InvokeAsync</c> / <c>InvokeVoidAsync</c> call. The
+    /// <c>InvokeVoidAsync(...)</c> calls in production are extension methods that
+    /// funnel into <c>InvokeAsync&lt;IJSVoidResult&gt;</c>, so the recorded
+    /// identifier is e.g. <c>"initGrid"</c>.
+    /// </summary>
+    private sealed class FakeJsObjectReference : IJSObjectReference
     {
-        JSInterop.Mode = JSRuntimeMode.Strict;            // any unexpected JS invocation throws
-        var interop = new DashboardJsInterop(JSInterop.JSRuntime);
-        await interop.InitGridAsync("grid-el", interactive: false, default);   // must NOT touch JS
-        await interop.DisposeAsync();
-        // Strict mode + no expectation set => test fails if any JS call happened
+        public List<(string Identifier, object?[] Args)> Invocations { get; } = new();
+        public int DisposeCount { get; private set; }
+
+        public ValueTask<TValue> InvokeAsync<TValue>(string identifier, object?[]? args)
+        {
+            Invocations.Add((identifier, args ?? Array.Empty<object?>()));
+            return new ValueTask<TValue>(default(TValue)!);
+        }
+
+        public ValueTask<TValue> InvokeAsync<TValue>(string identifier, CancellationToken cancellationToken, object?[]? args)
+        {
+            Invocations.Add((identifier, args ?? Array.Empty<object?>()));
+            return new ValueTask<TValue>(default(TValue)!);
+        }
+
+        public ValueTask DisposeAsync()
+        {
+            DisposeCount++;
+            return ValueTask.CompletedTask;
+        }
+    }
+
+    /// <summary>
+    /// Records every <c>(identifier, args)</c>. For <c>"import"</c> it returns the
+    /// shared <see cref="FakeJsObjectReference"/> so the production code can invoke
+    /// the module; any other identifier returns <c>default</c>.
+    /// </summary>
+    private sealed class FakeJsRuntime : IJSRuntime
+    {
+        public List<(string Identifier, object?[] Args)> Invocations { get; } = new();
+        public FakeJsObjectReference Module { get; } = new();
+
+        public string? ImportPath =>
+            Invocations
+                .Where(i => i.Identifier == "import")
+                .SelectMany(i => i.Args)
+                .OfType<string>()
+                .FirstOrDefault();
+
+        private ValueTask<TValue> Record<TValue>(string identifier, object?[]? args)
+        {
+            Invocations.Add((identifier, args ?? Array.Empty<object?>()));
+            if (identifier == "import")
+                return new ValueTask<TValue>((TValue)(object)Module);
+            return new ValueTask<TValue>(default(TValue)!);
+        }
+
+        public ValueTask<TValue> InvokeAsync<TValue>(string identifier, object?[]? args)
+            => Record<TValue>(identifier, args);
+
+        public ValueTask<TValue> InvokeAsync<TValue>(string identifier, CancellationToken cancellationToken, object?[]? args)
+            => Record<TValue>(identifier, args);
     }
 
     [Fact]
-    public async Task InitGrid_Imports_Module_And_Calls_initGrid_When_Interactive()
+    public async Task InitGrid_NoOps_When_Not_Interactive()
     {
-        var module = JSInterop.SetupModule("./_content/BlazorDashboardKit/dashboard-interop.js");
-        module.SetupVoid("initGrid", _ => true);
-        var interop = new DashboardJsInterop(JSInterop.JSRuntime);
-        await interop.InitGridAsync("grid-el", interactive: true, default);
-        module.VerifyInvoke("initGrid");
-        await interop.DisposeAsync();
+        var js = new FakeJsRuntime();
+        var sut = new DashboardJsInterop(js);
+
+        await sut.InitGridAsync("grid-el", interactive: false, default);
+
+        Assert.Empty(js.Invocations);            // no "import"
+        Assert.Empty(js.Module.Invocations);     // no "initGrid"
+    }
+
+    [Fact]
+    public async Task InitGrid_Imports_Module_Then_Calls_initGrid_When_Interactive()
+    {
+        var js = new FakeJsRuntime();
+        var sut = new DashboardJsInterop(js);
+
+        await sut.InitGridAsync("grid-el", interactive: true, default);
+
+        var import = Assert.Single(js.Invocations.Where(i => i.Identifier == "import"));
+        Assert.Contains("./_content/BlazorDashboardKit/dashboard-interop.js", import.Args);
+
+        var initGrid = Assert.Single(js.Module.Invocations.Where(i => i.Identifier == "initGrid"));
+        Assert.Equal("grid-el", initGrid.Args[0]);
+    }
+
+    [Fact]
+    public async Task Dispose_Is_Idempotent_And_NoThrow()
+    {
+        var js = new FakeJsRuntime();
+        var sut = new DashboardJsInterop(js);
+        await sut.InitGridAsync("grid-el", interactive: true, default);
+
+        await sut.DisposeAsync();
+        await sut.DisposeAsync();
     }
 }
