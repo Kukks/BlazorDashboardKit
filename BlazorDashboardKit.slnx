@@ -1,2 +1,13 @@
 <Solution>
+  <Folder Name="/samples/" />
+  <Folder Name="/samples/SampleApp/">
+    <Project Path="samples/SampleApp/SampleApp.Client/SampleApp.Client.csproj" />
+    <Project Path="samples/SampleApp/SampleApp/SampleApp.csproj" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/BlazorDashboardKit/BlazorDashboardKit.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/BlazorDashboardKit.Tests/BlazorDashboardKit.Tests.csproj" />
+  </Folder>
 </Solution>
