@@ -85,6 +85,8 @@ Add `@using BlazorDashboardKit.Components` to `_Imports.razor`, then drop the ho
 - **`OwnerKey`** (required) — an opaque, consumer-chosen string identifying whose dashboard this is. It is passed straight to your `IDashboardStore`; use a user id, tenant id, store id, or any key you control. A null/empty key renders an empty container and never touches the store.
 - **`EditMode`** — start in edit mode (add/remove/drag/resize widgets, rename, import/export). Defaults to `false`.
 - **`ReadOnly`** — when `true`, hides the "Edit" affordance entirely so the dashboard cannot be edited.
+- **`ShowDebugInfo`** — opt-in per-widget placement debug label in edit mode (off by default).
+- **`GridOptions`** — a `DashboardGridOptions` to tune the grid: `Columns` (12), `CellHeight` (146px), `Margin` (8px), `Float` (true), `MobileBreakpointWidth` (992px), `MobileColumns` (1). Defaults match the kit's built-in behaviour.
 - Authentication, when relevant, flows in automatically via a cascading `Task<AuthenticationState>` if your app provides one (the standard `AuthorizeRouteView` / `CascadingAuthenticationState` setup). Without it, the authenticated user is treated as `null` and the allow-all policy still grants access.
 
 ## Write a widget

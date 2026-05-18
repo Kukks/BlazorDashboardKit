@@ -23,7 +23,7 @@ let _changeBatch = null;
 // BTCPay passed a DOM ElementReference; the host-agnostic kit passes the
 // container's element id (DashboardHost._gridContainerId), so the element is
 // resolved here. Everything else mirrors the original initGrid.
-export function initGrid(containerId, dotNetHelper, editMode) {
+export function initGrid(containerId, dotNetHelper, editMode, options) {
     var containerElement = typeof containerId === 'string'
         ? document.getElementById(containerId)
         : containerId;
@@ -31,19 +31,23 @@ export function initGrid(containerId, dotNetHelper, editMode) {
     destroyGrid();
     _dotNetHelper = dotNetHelper;
 
+    // options come from DashboardHost.GridOptions (camelCase via Blazor JSON).
+    // Fall back to the kit defaults so older callers / null still work.
+    var o = options || {};
+    var columns = o.columns || 12;
     var grid = globalThis.GridStack.init({
-        column: 12,
-        cellHeight: 146,
-        margin: 8,
-        float: true,
+        column: columns,
+        cellHeight: o.cellHeight || 146,
+        margin: (o.margin == null ? 8 : o.margin),
+        float: (o.float == null ? true : o.float),
         animate: true,
         draggable: { handle: '.widget-drag-handle' },
         resizable: { handles: 'e,se,s,sw,w' },
         staticGrid: !editMode,
         columnOpts: {
-            breakpoints: [{ w: 992, c: 1 }],
+            breakpoints: [{ w: (o.mobileBreakpointWidth || 992), c: (o.mobileColumns || 1) }],
             breakpointForWindow: true,
-            columnMax: 12
+            columnMax: columns
         }
     }, containerElement);
 

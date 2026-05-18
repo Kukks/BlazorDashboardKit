@@ -50,7 +50,8 @@ public sealed class DashboardJsInterop : IAsyncDisposable
         bool interactive,
         CancellationToken ct,
         DotNetObjectReference<object>? dotNetHelper = null,
-        bool editMode = false)
+        bool editMode = false,
+        Models.DashboardGridOptions? options = null)
     {
         if (!interactive)
             return;                                     // static SSR / prerender: no JS
@@ -64,7 +65,8 @@ public sealed class DashboardJsInterop : IAsyncDisposable
 
         _module ??= await _js.InvokeAsync<IJSObjectReference>(
             "import", ct, ModulePath);
-        await _module.InvokeVoidAsync("initGrid", ct, containerId, _dotNetRef, editMode);
+        await _module.InvokeVoidAsync("initGrid", ct, containerId, _dotNetRef, editMode,
+            options ?? new Models.DashboardGridOptions());
     }
 
     public async Task SetEditModeAsync(bool editMode, bool interactive, CancellationToken ct)

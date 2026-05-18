@@ -199,6 +199,52 @@ public class DashboardHostTests : TestContext
     }
 
     [Fact]
+    public void Custom_GridOptions_Are_Forwarded_To_The_Grid_Init()
+    {
+        var js = new RecordingJsRuntime();
+        Services.AddSingleton<IDashboardStore>(new InMemoryDashboardStore());
+        Services.AddSingleton<IWidgetAccessControl, AllowAllWidgetAccessControl>();
+        Services.AddSingleton(new WidgetRegistry(Array.Empty<WidgetDescriptor>()));
+        Services.AddScoped<DashboardService>();
+        Services.AddScoped(_ => new DashboardJsInterop(js));
+
+        var opts = new DashboardGridOptions { Columns = 6, CellHeight = 100, Margin = 4, MobileColumns = 2 };
+        var cut = RenderComponent<BlazorDashboardKit.Components.DashboardHost>(p => p
+            .Add(x => x.OwnerKey, "owner-1")
+            .Add(x => x.EditMode, true)
+            .Add(x => x.GridOptions, opts));
+
+        cut.WaitForState(() => js.InitGridCalls == 1, TimeSpan.FromSeconds(5));
+
+        Assert.NotNull(js.LastGridOptions);
+        Assert.Equal(6, js.LastGridOptions!.Columns);
+        Assert.Equal(100, js.LastGridOptions.CellHeight);
+        Assert.Equal(4, js.LastGridOptions.Margin);
+        Assert.Equal(2, js.LastGridOptions.MobileColumns);
+    }
+
+    [Fact]
+    public void Default_GridOptions_Are_Sent_When_None_Provided()
+    {
+        var js = new RecordingJsRuntime();
+        Services.AddSingleton<IDashboardStore>(new InMemoryDashboardStore());
+        Services.AddSingleton<IWidgetAccessControl, AllowAllWidgetAccessControl>();
+        Services.AddSingleton(new WidgetRegistry(Array.Empty<WidgetDescriptor>()));
+        Services.AddScoped<DashboardService>();
+        Services.AddScoped(_ => new DashboardJsInterop(js));
+
+        var cut = RenderComponent<BlazorDashboardKit.Components.DashboardHost>(p => p
+            .Add(x => x.OwnerKey, "owner-1")
+            .Add(x => x.EditMode, true));
+
+        cut.WaitForState(() => js.InitGridCalls == 1, TimeSpan.FromSeconds(5));
+
+        Assert.NotNull(js.LastGridOptions);
+        Assert.Equal(12, js.LastGridOptions!.Columns);   // kit default
+        Assert.Equal(146, js.LastGridOptions.CellHeight);
+    }
+
+    [Fact]
     public void Widget_Size_Constraints_From_Descriptor_Reach_The_Grid()
     {
         // The descriptor declares Min/Max column/row sizes; they must be emitted
@@ -310,6 +356,7 @@ public class DashboardHostTests : TestContext
     {
         private readonly RecordingModule _module = new();
         public int InitGridCalls => _module.InitGridCalls;
+        public DashboardGridOptions? LastGridOptions => _module.LastGridOptions;
 
         public ValueTask<TValue> InvokeAsync<TValue>(string identifier, object?[]? args)
             => InvokeAsync<TValue>(identifier, CancellationToken.None, args);
@@ -326,6 +373,7 @@ public class DashboardHostTests : TestContext
         private sealed class RecordingModule : IJSObjectReference
         {
             public int InitGridCalls;
+            public DashboardGridOptions? LastGridOptions;
 
             public ValueTask<TValue> InvokeAsync<TValue>(string identifier, object?[]? args)
                 => InvokeAsync<TValue>(identifier, CancellationToken.None, args);
@@ -333,7 +381,12 @@ public class DashboardHostTests : TestContext
             public ValueTask<TValue> InvokeAsync<TValue>(
                 string identifier, CancellationToken cancellationToken, object?[]? args)
             {
-                if (identifier == "initGrid") InitGridCalls++;
+                if (identifier == "initGrid")
+                {
+                    InitGridCalls++;
+                    // initGrid args: [containerId, dotNetRef, editMode, DashboardGridOptions]
+                    LastGridOptions = args?.OfType<DashboardGridOptions>().FirstOrDefault();
+                }
                 return new ValueTask<TValue>(default(TValue)!);
             }
 

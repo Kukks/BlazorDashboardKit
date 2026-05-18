@@ -129,6 +129,8 @@ else
     [Parameter] public bool ReadOnly { get; set; }
     /// <summary>Opt-in: show the per-widget placement debug label in edit mode. Off by default.</summary>
     [Parameter] public bool ShowDebugInfo { get; set; }
+    /// <summary>Tune the grid (columns, cell height, margin, responsiveness). Defaults match the kit's built-in behaviour.</summary>
+    [Parameter] public DashboardGridOptions? GridOptions { get; set; }
 
     [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
 
@@ -226,7 +228,7 @@ else
             // DotNetObjectReference per ResetGrid call. JS-side callbacks don't care about
             // the generic type; matching InitGrid's <object> signature lets us cache one ref.
             _dotNetRef ??= DotNetObjectReference.Create<object>(this);
-            await JsInterop.InitGridAsync(_gridContainerId, interactive: true, _disposeCts.Token, _dotNetRef, EditMode);
+            await JsInterop.InitGridAsync(_gridContainerId, interactive: true, _disposeCts.Token, _dotNetRef, EditMode, GridOptions);
             // GridStack now owns layout: re-render so the static-fallback marker
             // class (bound to _gridInitialized) is removed. Without this,
             // OnAfterRenderAsync mutating state alone never re-renders, so the
