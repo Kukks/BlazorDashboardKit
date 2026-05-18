@@ -25,8 +25,26 @@ public sealed class JsonFileDashboardStore : IDashboardStore
     {
         var path = PathFor(ownerKey);
         if (!File.Exists(path)) return null;
-        await using var fs = File.OpenRead(path);
-        return await JsonSerializer.DeserializeAsync<DashboardCollection>(fs, cancellationToken: ct);
+        try
+        {
+            await using var fs = File.OpenRead(path);
+            return await JsonSerializer.DeserializeAsync<DashboardCollection>(fs, cancellationToken: ct);
+        }
+        catch (JsonException)
+        {
+            // A corrupt/partial/hand-edited file must not crash the dashboard.
+            // Quarantine it (preserve the data for inspection, never silently
+            // delete) and recover by treating the owner as having no dashboard.
+            try
+            {
+                File.Move(path, $"{path}.corrupt-{DateTime.UtcNow:yyyyMMddHHmmssfff}", overwrite: false);
+            }
+            catch (IOException)
+            {
+                // Best-effort quarantine; recover regardless.
+            }
+            return null;
+        }
     }
 
     public async Task SaveAsync(string ownerKey, DashboardCollection collection, CancellationToken ct = default)

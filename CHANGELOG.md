@@ -35,6 +35,8 @@ follow [Semantic Versioning](https://semver.org/).
 - `publish.yml` (tag-based release to NuGet + GitHub Packages) and `pages.yml`.
 
 ### Fixed
+- `JsonFileDashboardStore` no longer crashes the dashboard on a corrupt/partial
+  persisted file: it quarantines the bad file (`.corrupt-<ts>`) and recovers.
 - Widget picker / Actions menus no longer require Bootstrap's JS (Blazor-driven).
 - Grid is re-initialized after add/remove/import (was stranded after the first
   layout change).
