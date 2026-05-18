@@ -31,4 +31,13 @@ public class BaseWidgetComponentTests : TestContext
         var cut = RenderComponent<TestWidget>();
         Assert.Contains("test-widget-body", cut.Markup);
     }
+
+    [Fact]
+    public void Renders_Body_When_Access_Granted()
+    {
+        Services.AddSingleton<IWidgetAccessControl>(new AllowAllWidgetAccessControl());
+        var cut = RenderComponent<TestWidget>(p => p
+            .Add(x => x.RequiredPermissions, new[] { "perm" }));
+        Assert.Contains("test-widget-body", cut.Markup);
+    }
 }

@@ -27,6 +27,7 @@ public abstract class BaseWidgetComponent<TConfig> : ComponentBase, IDisposable
     [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
 
     private readonly CancellationTokenSource _cts = new();
+    private CancellationTokenSource? _checkCts;
 
     public bool Loading
     {
@@ -86,7 +87,7 @@ public abstract class BaseWidgetComponent<TConfig> : ComponentBase, IDisposable
     [Parameter] public EventCallback RequestConfigure { get; set; }
 
     // Access control
-    protected bool HasAccess { get; private set; } = true;
+    protected bool HasAccess { get; private set; } = false;
 
     protected TConfig? EditConfig { get; set; }
 
@@ -163,22 +164,19 @@ public abstract class BaseWidgetComponent<TConfig> : ComponentBase, IDisposable
         return base.SetParametersAsync(parameters);
     }
 
-    protected override async Task OnInitializedAsync()
-    {
-        if (RequiredPermissions.Length > 0)
-        {
-            await CheckAccessAsync(_cts.Token);
-        }
-    }
-
     protected override async Task OnParametersSetAsync()
     {
         // Re-check whenever the data-relevant parameters change. The same widget
         // instance can be reused across navigation (e.g. switching stores), so a
         // cached HasAccess from the previous context would otherwise leak through.
-        if (RequiredPermissions.Length > 0 && DataParametersChanged)
+        // Always call CheckAccessAsync on data-parameter changes; it handles the
+        // empty-permissions case by setting HasAccess=true and returning immediately.
+        if (DataParametersChanged)
         {
-            await CheckAccessAsync(_cts.Token);
+            _checkCts?.Cancel();
+            _checkCts?.Dispose();
+            _checkCts = CancellationTokenSource.CreateLinkedTokenSource(_cts.Token);
+            await CheckAccessAsync(_checkCts.Token);
         }
 
         // Mark the initial lifecycle pass complete only after the first
@@ -207,6 +205,11 @@ public abstract class BaseWidgetComponent<TConfig> : ComponentBase, IDisposable
                     return;
                 }
             }
+        }
+        catch (OperationCanceledException)
+        {
+            // This check was pre-empted by a newer parameter change. Do NOT touch HasAccess;
+            // the superseding check owns the result.
         }
         catch
         {
@@ -273,6 +276,8 @@ public abstract class BaseWidgetComponent<TConfig> : ComponentBase, IDisposable
 
     public void Dispose()
     {
+        try { _checkCts?.Cancel(); } catch (ObjectDisposedException) { }
+        try { _checkCts?.Dispose(); } catch (ObjectDisposedException) { }
         _cts.Cancel();
         _cts.Dispose();
         GC.SuppressFinalize(this);
