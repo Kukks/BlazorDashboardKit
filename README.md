@@ -56,10 +56,23 @@ initializer will then no-op:
 
 The kit ships `--bdk-*` CSS custom properties with sensible standalone
 defaults; each also falls back to the matching BTCPay Server variable, so the
-kit adopts a BTCPay theme automatically. Override any token on an ancestor
-(zero-specificity `:where()` selectors mean your values win), e.g.
-`--bdk-surface`, `--bdk-text`, `--bdk-primary`, `--bdk-radius`,
-`--bdk-edit-header-height`.
+kit adopts a BTCPay theme automatically. It also **auto-switches to a dark
+palette** under `prefers-color-scheme: dark`. Override any token on an ancestor
+(zero-specificity `:where()` selectors mean your values always win), e.g.
+
+```css
+:root {
+    --bdk-surface: #0b1020;
+    --bdk-text: #e8eaf0;
+    --bdk-primary: #6c8cff;
+    --bdk-radius: 0.75rem;
+}
+```
+
+Common tokens: `--bdk-surface`, `--bdk-surface-muted`, `--bdk-text`,
+`--bdk-text-muted`, `--bdk-border`, `--bdk-primary`, `--bdk-danger`,
+`--bdk-radius`, `--bdk-shadow`, `--bdk-edit-header-height`,
+`--bdk-fallback-item-min-height`.
 
 ## Use the host
 

@@ -199,6 +199,42 @@ public class DashboardHostTests : TestContext
     }
 
     [Fact]
+    public void Widget_Size_Constraints_From_Descriptor_Reach_The_Grid()
+    {
+        // The descriptor declares Min/Max column/row sizes; they must be emitted
+        // as GridStack gs-min/max attributes or resize is unconstrained.
+        var js = new RecordingJsRuntime();
+        var descriptor = new WidgetDescriptor
+        {
+            Type = "Test", Name = "Test Widget", Category = "Demo",
+            ComponentType = typeof(TestWidget),
+            MinColumnSize = 2, MaxColumnSize = 8,
+            MinRowSpan = 1, MaxRowSpan = 5
+        };
+
+        Services.AddSingleton<IDashboardStore>(new InMemoryDashboardStore());
+        Services.AddSingleton<IWidgetAccessControl, AllowAllWidgetAccessControl>();
+        Services.AddSingleton(new WidgetRegistry(new[] { descriptor }));
+        Services.AddScoped<DashboardService>();
+        Services.AddScoped(_ => new DashboardJsInterop(js));
+
+        var cut = RenderComponent<BlazorDashboardKit.Components.DashboardHost>(p => p
+            .Add(x => x.OwnerKey, "owner-1")
+            .Add(x => x.EditMode, true));
+
+        cut.WaitForState(() => js.InitGridCalls == 1, TimeSpan.FromSeconds(5));
+        cut.Find("button.btn-outline-primary.dropdown-toggle").Click();
+        cut.Find("button.dropdown-item.small").Click();
+        cut.WaitForState(() => cut.FindAll(".grid-stack-item").Count == 1, TimeSpan.FromSeconds(5));
+
+        var item = cut.Find(".grid-stack-item");
+        Assert.Equal("2", item.GetAttribute("gs-min-w"));
+        Assert.Equal("8", item.GetAttribute("gs-max-w"));
+        Assert.Equal("1", item.GetAttribute("gs-min-h"));
+        Assert.Equal("5", item.GetAttribute("gs-max-h"));
+    }
+
+    [Fact]
     public void Static_Fallback_Class_Is_Cleared_Once_Grid_Is_Live()
     {
         // The container carries `bdk-grid-static` (CSS fallback layout) until

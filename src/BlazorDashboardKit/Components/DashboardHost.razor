@@ -74,7 +74,11 @@ else
                  gs-x="@wp.X"
                  gs-y="@wp.Y"
                  gs-w="@wp.W"
-                 gs-h="@wp.Placement.RowSpan">
+                 gs-h="@wp.Placement.RowSpan"
+                 gs-min-w="@(descriptor?.MinColumnSize)"
+                 gs-max-w="@(descriptor?.MaxColumnSize)"
+                 gs-min-h="@(descriptor?.MinRowSpan)"
+                 gs-max-h="@(descriptor?.MaxRowSpan)">
                 <div class="grid-stack-item-content">
                     @if (descriptor is null)
                     {
