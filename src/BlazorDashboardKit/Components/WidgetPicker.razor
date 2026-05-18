@@ -4,7 +4,7 @@
        the menu. No Bootstrap JS, no document listeners, no JS interop. *@
     <div class="bdk-dropdown-backdrop" @onclick="Close"></div>
 }
-<div class="dropdown @(_open ? "show" : null)">
+<div class="dropdown @(_open ? "show" : null)" @onkeydown="OnKeyDown">
     <button class="btn btn-outline-primary btn-sm dropdown-toggle" type="button"
             @onclick="Toggle" aria-expanded="@(_open ? "true" : "false")">
         Add Widget
@@ -40,6 +40,11 @@
     private void Toggle() => _open = !_open;
 
     private void Close() => _open = false;
+
+    private void OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape") _open = false;
+    }
 
     private async Task AddWidget(WidgetDescriptor descriptor)
     {

@@ -69,7 +69,8 @@ else
             {
                 <div class="bdk-dropdown-backdrop" @onclick="() => _actionsOpen = false"></div>
             }
-            <div class="dropdown @(_actionsOpen ? "show" : null)">
+            <div class="dropdown @(_actionsOpen ? "show" : null)"
+                 @onkeydown="@(e => { if (e.Key == "Escape") _actionsOpen = false; })">
                 <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button"
                         @onclick="ToggleActions" disabled="@_widgetEditMode"
                         aria-expanded="@(_actionsOpen ? "true" : "false")">

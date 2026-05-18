@@ -36,6 +36,20 @@ public class WidgetPickerTests : TestContext
     }
 
     [Fact]
+    public void Escape_Closes_The_Menu()
+    {
+        var cut = RenderComponent<BlazorDashboardKit.Components.WidgetPicker>(p => p
+            .Add(x => x.Available, new List<WidgetDescriptor>
+                { new() { Type = "Notes", Name = "Notes", Category = "Utility" } }));
+
+        cut.Find("button.dropdown-toggle").Click();
+        Assert.Contains("show", cut.Find(".dropdown-menu").ClassList);
+
+        cut.Find(".dropdown").KeyDown(key: "Escape");
+        Assert.DoesNotContain("show", cut.Find(".dropdown-menu").ClassList);
+    }
+
+    [Fact]
     public void Clicking_Outside_Backdrop_Closes_The_Menu()
     {
         var cut = RenderComponent<BlazorDashboardKit.Components.WidgetPicker>(p => p
