@@ -69,6 +69,15 @@ palette** under `prefers-color-scheme: dark`. Override any token on an ancestor
 }
 ```
 
+## Locking widgets
+
+In edit mode each widget has a lock toggle (🔒/🔓) in its header. A locked
+widget cannot be dragged or resized and other widgets won't displace it
+(`WidgetPlacement.Locked`, persisted with the layout). Useful for pinning a
+header or KPI strip while the rest of the dashboard stays rearrangeable.
+
+## Theming tokens
+
 Common tokens: `--bdk-surface`, `--bdk-surface-muted`, `--bdk-text`,
 `--bdk-text-muted`, `--bdk-border`, `--bdk-primary`, `--bdk-danger`,
 `--bdk-radius`, `--bdk-shadow`, `--bdk-edit-header-height`,

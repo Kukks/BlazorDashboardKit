@@ -16,4 +16,16 @@ public class WidgetPlacementJsonTests
         Assert.Null(back.Row);
         Assert.Equal("Notes", back.WidgetType);
     }
+
+    [Fact]
+    public void RoundTrips_Locked()
+    {
+        var back = JsonSerializer.Deserialize<WidgetPlacement>(
+            JsonSerializer.Serialize(new WidgetPlacement { WidgetType = "X", Locked = true }))!;
+        Assert.True(back.Locked);
+
+        var def = JsonSerializer.Deserialize<WidgetPlacement>(
+            JsonSerializer.Serialize(new WidgetPlacement { WidgetType = "X" }))!;
+        Assert.False(def.Locked);
+    }
 }

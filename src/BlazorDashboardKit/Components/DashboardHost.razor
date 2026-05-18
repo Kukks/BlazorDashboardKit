@@ -78,7 +78,10 @@ else
                  gs-min-w="@(descriptor?.MinColumnSize)"
                  gs-max-w="@(descriptor?.MaxColumnSize)"
                  gs-min-h="@(descriptor?.MinRowSpan)"
-                 gs-max-h="@(descriptor?.MaxRowSpan)">
+                 gs-max-h="@(descriptor?.MaxRowSpan)"
+                 gs-locked="@(wp.Placement.Locked ? "true" : null)"
+                 gs-no-move="@(wp.Placement.Locked ? "true" : null)"
+                 gs-no-resize="@(wp.Placement.Locked ? "true" : null)">
                 <div class="grid-stack-item-content">
                     @if (descriptor is null)
                     {
@@ -101,6 +104,7 @@ else
                                          OnEditModeChanged="OnWidgetEditMode"
                                          OnRemove="() => RemoveWidget(wp.Placement)"
                                          OnSizeChanged="(_) => OnWidgetSizeChanged()"
+                                         OnToggleLock="() => ToggleWidgetLock(wp.Placement)"
                                          OnConfigure="() => OpenConfigPanel(wp.Placement, descriptor)" />
                     }
                 </div>
@@ -419,6 +423,14 @@ else
         await SaveDashboard();
         // Rebuild the grid like AddWidget does: otherwise GridStack keeps a
         // stale model that still references the removed DOM node.
+        await ResetGrid();
+    }
+
+    private async Task ToggleWidgetLock(WidgetPlacement placement)
+    {
+        placement.Locked = !placement.Locked;
+        await SaveDashboard();
+        // Rebuild so GridStack picks up the changed gs-locked/no-move/no-resize.
         await ResetGrid();
     }
 

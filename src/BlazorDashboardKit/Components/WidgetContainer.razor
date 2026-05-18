@@ -9,6 +9,10 @@
                 <span class="small">@Descriptor.Name</span>
             </div>
             <div class="widget-controls">
+                <button class="widget-control-btn" title="@(Placement.Locked ? "Unlock widget" : "Lock widget")"
+                        @onclick="OnToggleLock">
+                    <span aria-hidden="true">@(Placement.Locked ? "🔒" : "🔓")</span>
+                </button>
                 <button class="widget-control-btn" title="Configure widget"
                         @onclick="OnConfigure">
                     <span class="icon icon-settings" aria-hidden="true"></span>
@@ -58,6 +62,7 @@
     [Parameter] public EventCallback OnRemove { get; set; }
     [Parameter] public EventCallback<(int cols, int rows)> OnSizeChanged { get; set; }
     [Parameter] public EventCallback OnConfigure { get; set; }
+    [Parameter] public EventCallback OnToggleLock { get; set; }
 
     private ErrorBoundary? _errorBoundary;
 

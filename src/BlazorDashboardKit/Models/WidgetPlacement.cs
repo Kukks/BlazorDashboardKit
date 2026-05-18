@@ -14,5 +14,7 @@ public class WidgetPlacement
     public int? Offset { get; set; }
     /// <summary>Explicit gridstack row (y); null = auto-flow. Preserves real layouts with gaps.</summary>
     public int? Row { get; set; }
+    /// <summary>When true the widget cannot be moved or resized (pinned in place).</summary>
+    public bool Locked { get; set; }
     public JsonObject? Config { get; set; }
 }
