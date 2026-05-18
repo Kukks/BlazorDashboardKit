@@ -1,0 +1,555 @@
+@using System.Security.Claims
+@using System.Text.Json
+@using System.Text.Json.Nodes
+@using Microsoft.AspNetCore.Components.Authorization
+@inject DashboardService DashboardService
+@inject WidgetRegistry WidgetRegistry
+@inject IWidgetAccessControl AccessControl
+@inject DashboardJsInterop JsInterop
+@implements IAsyncDisposable
+
+@if (_activeDashboard is null)
+{
+    @* No owner / nothing resolved: render an empty container without touching the store or JS. *@
+    <div class="dashboard-empty-container"></div>
+}
+else
+{
+<div class="dashboard-header d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex align-items-center gap-3">
+        @if (EditMode)
+        {
+            <input type="text" class="form-control form-control-sm fw-bold fs-5"
+                   style="width: auto; min-width: 150px; max-width: 300px;"
+                   value="@_activeDashboard.Name"
+                   @onchange="OnDashboardNameChanged" />
+        }
+        else
+        {
+            <h3 class="mb-0">@(_activeDashboard?.Name ?? "Dashboard")</h3>
+        }
+    </div>
+
+    <div class="d-flex gap-2 align-items-center">
+        @if (EditMode)
+        {
+            <WidgetPicker Available="_availableWidgets"
+                          OnWidgetAdded="AddWidget" />
+            <div class="dropdown">
+                <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button"
+                        data-bs-toggle="dropdown" disabled="@_widgetEditMode">
+                    Actions
+                </button>
+                <div class="dropdown-menu dropdown-menu-end">
+                    <button class="dropdown-item" @onclick="ExportDashboard">Export</button>
+                    <label class="dropdown-item mb-0" style="cursor: pointer;">
+                        Import
+                        <input type="file" accept=".json" @ref="_importFileInput" @onchange="ImportDashboard" hidden />
+                    </label>
+                </div>
+            </div>
+            <button class="btn btn-primary btn-sm" disabled="@_widgetEditMode" @onclick="ExitEditMode">Done</button>
+        }
+        else
+        {
+            @if (!ReadOnly)
+            {
+                <button class="btn btn-link btn-sm" @onclick="EnterEditMode">Edit</button>
+            }
+        }
+    </div>
+</div>
+
+<div id="@_gridContainerId" class="grid-stack @(EditMode ? "dashboard-edit" : "")">
+    @if (_activeDashboard is not null && _activeDashboard.Widgets.Count > 0)
+    {
+        @foreach (var wp in ComputeGridPositions())
+        {
+            var descriptor = WidgetRegistry.GetDescriptor(wp.Placement.WidgetType);
+            var isConfiguring = _configuringPlacement?.Id == wp.Placement.Id;
+            <div @key="wp.Placement.Id"
+                 class="grid-stack-item @(isConfiguring ? "widget-configuring" : "")"
+                 gs-id="@wp.Placement.Id"
+                 gs-x="@wp.X"
+                 gs-y="@wp.Y"
+                 gs-w="@wp.W"
+                 gs-h="@wp.Placement.RowSpan">
+                <div class="grid-stack-item-content">
+                    @if (descriptor is null)
+                    {
+                        <WidgetUnavailable Placement="wp.Placement"
+                                           EditMode="EditMode"
+                                           OnRemove="() => RemoveWidget(wp.Placement)" />
+                    }
+                    else
+                    {
+                        <WidgetContainer Placement="wp.Placement"
+                                         Descriptor="descriptor"
+                                         StoreId="@string.Empty"
+                                         UserId="@string.Empty"
+                                         EditMode="EditMode"
+                                         WidgetEditMode="_widgetEditMode"
+                                         OnConfigChanged="(config) => OnWidgetConfigChanged(wp.Placement, config)"
+                                         OnEditModeChanged="(editing) => OnWidgetEditMode(editing)"
+                                         OnRemove="() => RemoveWidget(wp.Placement)"
+                                         OnSizeChanged="(size) => OnWidgetSizeChanged(size)"
+                                         OnConfigure="() => OpenConfigPanel(wp.Placement, descriptor)" />
+                    }
+                </div>
+            </div>
+        }
+    }
+    else if (_activeDashboard is not null)
+    {
+        <div class="dashboard-empty text-center py-5">
+            <h5 class="text-muted mb-3">This dashboard is empty</h5>
+            <p class="text-secondary mb-3">Add widgets in edit mode to get started.</p>
+        </div>
+    }
+</div>
+
+<WidgetConfigPanel Visible="_configuringPlacement is not null"
+                   Schema="@(_configuringDescriptor?.ConfigSchema ?? new())"
+                   Config="@(_configuringPlacement?.Config ?? new JsonObject())"
+                   ConfigChanged="SaveWidgetConfig"
+                   OnClose="CloseConfigPanel" />
+}
+
+@code {
+    [Parameter, EditorRequired] public string OwnerKey { get; set; } = default!;
+    [Parameter] public bool EditMode { get; set; }
+    [Parameter] public bool ReadOnly { get; set; }
+
+    [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
+
+    private DashboardCollection? _collection;
+    private DashboardDefinition? _activeDashboard;
+    private IReadOnlyList<WidgetDescriptor> _availableWidgets = Array.Empty<WidgetDescriptor>();
+    private bool _widgetEditMode;
+    private DotNetObjectReference<object>? _dotNetRef;
+    private readonly CancellationTokenSource _disposeCts = new();
+    private readonly string _gridContainerId = "bdk-grid-" + Guid.NewGuid().ToString("N");
+    private ElementReference _importFileInput;
+    private bool _gridInitialized;
+    private string? _loadedOwnerKey;
+    private bool _interactive;
+
+    // Widget config panel state
+    private WidgetPlacement? _configuringPlacement;
+    private WidgetDescriptor? _configuringDescriptor;
+    private bool _pendingConfiguration; // true when a newly added widget requires config before saving
+
+    // Render-mode awareness.
+    //
+    // The spec calls for `RendererInfo.IsInteractive`, but that ComponentBase property
+    // was introduced in .NET 9; this RCL targets net8.0 where it does not exist. The
+    // net8-correct substitute with identical semantics for our purpose: a component is
+    // only "interactive" once it reaches an interactive render. Static SSR and the
+    // prerender pass never invoke OnAfterRenderAsync (the component is later re-rendered
+    // by the interactive runtime, which is when OnAfterRenderAsync fires) — so reaching
+    // OnAfterRenderAsync IS the net8 signal that JS is usable. Until then `_interactive`
+    // stays false and every JsInterop.* call no-ops, so nothing touches JS during
+    // static SSR / prerender. The flag is threaded into every JsInterop.* call exactly
+    // as the explicit `interactive` parameter that DashboardJsInterop expects.
+    private bool Interactive => _interactive;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        // Treat null/empty as "no owner": never key the store on an empty string.
+        // Re-resolve only when the owner key actually changes, so parameter passes
+        // that don't change the owner (e.g. EditMode toggles) don't reload + clobber
+        // unsaved in-memory placement edits.
+        if (string.IsNullOrEmpty(OwnerKey))
+        {
+            _collection = null;
+            _activeDashboard = null;
+            _loadedOwnerKey = null;
+        }
+        else if (_loadedOwnerKey != OwnerKey)
+        {
+            var (collection, active) = await DashboardService.ResolveAsync(OwnerKey, _disposeCts.Token);
+            _collection = collection;
+            _activeDashboard = active;
+            _loadedOwnerKey = OwnerKey;
+        }
+
+        await RefreshAvailableWidgets();
+        await base.OnParametersSetAsync();
+    }
+
+    /// <summary>
+    /// Filters the registry's descriptors through <see cref="IWidgetAccessControl"/>
+    /// before they reach the picker, so users never see widgets they cannot use.
+    /// The authenticated user (when an auth context is cascaded) is passed through;
+    /// it may legitimately be null for anonymous / host-without-auth scenarios.
+    /// </summary>
+    private async Task RefreshAvailableWidgets()
+    {
+        ClaimsPrincipal? user = AuthState is null ? null : (await AuthState).User;
+        var allowed = new List<WidgetDescriptor>();
+        foreach (var descriptor in WidgetRegistry.Descriptors)
+        {
+            if (await AccessControl.IsAllowedAsync(descriptor, user, _disposeCts.Token))
+                allowed.Add(descriptor);
+        }
+        _availableWidgets = allowed;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // Reaching OnAfterRenderAsync means an interactive renderer is driving this
+        // component (static SSR / prerender never call it). This is the net8
+        // equivalent of RendererInfo.IsInteractive == true.
+        _interactive = true;
+
+        // Static SSR / prerender: render markup only, never initialize Gridstack.
+        // Only the interactive render owns JS.
+        if (firstRender && Interactive && !_gridInitialized && _activeDashboard is not null)
+        {
+            _gridInitialized = true;
+            // Reuse the cached _dotNetRef rather than creating a new (and never disposed)
+            // DotNetObjectReference per ResetGrid call. JS-side callbacks don't care about
+            // the generic type; matching InitGrid's <object> signature lets us cache one ref.
+            _dotNetRef ??= DotNetObjectReference.Create<object>(this);
+            await JsInterop.InitGridAsync(_gridContainerId, interactive: true, _disposeCts.Token, _dotNetRef, EditMode);
+        }
+    }
+
+    /// <summary>
+    /// Destroys the current gridstack instance and marks it for re-initialization
+    /// on the next render. Call this whenever the dashboard widgets change wholesale
+    /// (delete, import).
+    /// </summary>
+    private async Task ResetGrid()
+    {
+        if (_gridInitialized)
+        {
+            await JsInterop.DestroyGridAsync(Interactive, _disposeCts.Token);
+            _gridInitialized = false;
+        }
+    }
+
+    private async Task EnterEditMode()
+    {
+        EditMode = true;
+        await JsInterop.SetEditModeAsync(true, Interactive, _disposeCts.Token);
+    }
+
+    private async Task ExitEditMode()
+    {
+        EditMode = false;
+        _widgetEditMode = false;
+        await JsInterop.SetEditModeAsync(false, Interactive, _disposeCts.Token);
+        await SaveDashboard();
+    }
+
+    [JSInvokable]
+    public async Task OnGridChanged(string changesJson)
+    {
+        if (_activeDashboard is null) return;
+
+        var changes = JsonSerializer.Deserialize<List<GridChange>>(changesJson);
+        if (changes is null || changes.Count == 0) return;
+
+        foreach (var change in changes)
+        {
+            var placement = _activeDashboard.Widgets.FirstOrDefault(w => w.Id == change.Id);
+            if (placement is null) continue;
+            // Persist the explicit column even when it's 0; nullable Offset
+            // distinguishes "unset (auto-flow)" from "deliberately at column 0".
+            placement.Offset = change.X;
+            // Row is the authoritative gridstack y. Order is kept in sync for
+            // backwards compatibility with pre-Row JSON and template ordering.
+            placement.Row = change.Y;
+            placement.Order = change.Y;
+            placement.ColumnSize = change.W;
+            placement.RowSpan = change.H;
+        }
+
+        await SaveDashboard();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private sealed class GridChange
+    {
+        [System.Text.Json.Serialization.JsonPropertyName("id")] public string Id { get; set; } = "";
+        [System.Text.Json.Serialization.JsonPropertyName("x")] public int X { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("y")] public int Y { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("w")] public int W { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("h")] public int H { get; set; }
+    }
+
+    private record struct WidgetPosition(WidgetPlacement Placement, int X, int Y, int W);
+
+    /// <summary>
+    /// Computes gridstack x/y positions for each widget. Widgets with explicit
+    /// Row + Offset (the result of a prior drag-save cycle) are placed at exactly
+    /// those coordinates so real GridStack arrangements with gaps or stacked
+    /// widgets beside taller neighbours survive a save-reload cycle. Widgets
+    /// without explicit positions (template-fresh) auto-flow via a packer that
+    /// runs after the explicits, starting one row below the lowest explicit row.
+    /// </summary>
+    private List<WidgetPosition> ComputeGridPositions()
+    {
+        var result = new List<WidgetPosition>();
+        if (_activeDashboard is null) return result;
+
+        // Explicit (Row + Offset both set) — render at the persisted coordinates.
+        var explicitlyPlaced = _activeDashboard.Widgets
+            .Where(w => w.Row.HasValue && w.Offset.HasValue)
+            .OrderBy(w => w.Row!.Value)
+            .ThenBy(w => w.Offset!.Value)
+            .ToList();
+
+        foreach (var p in explicitlyPlaced)
+        {
+            result.Add(new WidgetPosition(p, p.Offset!.Value, p.Row!.Value, p.ColumnSize));
+        }
+
+        // Auto-flow — pack the rest after the lowest occupied row, in template Order.
+        var autoFlow = _activeDashboard.Widgets
+            .Where(w => !w.Row.HasValue || !w.Offset.HasValue)
+            .OrderBy(w => w.Order)
+            .ThenBy(w => w.Offset ?? int.MaxValue)
+            .ToList();
+
+        if (autoFlow.Count == 0) return result;
+
+        var colCursor = 0;
+        var row = explicitlyPlaced.Count > 0
+            ? explicitlyPlaced.Max(p => p.Row!.Value + Math.Max(p.RowSpan, 1))
+            : 0;
+        var rowHeight = 0;
+
+        foreach (var p in autoFlow)
+        {
+            var w = p.ColumnSize;
+            var x = p.Offset ?? colCursor;
+
+            if (x + w > 12)
+            {
+                row += Math.Max(rowHeight, 1);
+                rowHeight = 0;
+                x = 0;
+            }
+
+            result.Add(new WidgetPosition(p, x, row, w));
+            colCursor = x + w;
+            rowHeight = Math.Max(rowHeight, p.RowSpan);
+        }
+
+        return result;
+    }
+
+    private async Task AddWidget(WidgetDescriptor descriptor)
+    {
+        if (_activeDashboard is null) return;
+
+        // Shift all existing widgets down by one
+        foreach (var w in _activeDashboard.Widgets)
+            w.Order++;
+
+        var placement = new WidgetPlacement
+        {
+            WidgetType = descriptor.Type,
+            ColumnSize = descriptor.DefaultColumnSize,
+            RowSpan = descriptor.DefaultRowSpan,
+            Order = 0
+        };
+        _activeDashboard.Widgets.Add(placement);
+
+        if (descriptor.RequiresConfiguration)
+        {
+            // Don't save yet — open config panel and mark as pending
+            _pendingConfiguration = true;
+            _configuringPlacement = placement;
+            _configuringDescriptor = descriptor;
+        }
+        else
+        {
+            await SaveDashboard();
+        }
+
+        await ResetGrid();
+    }
+
+    private async Task RemoveWidget(WidgetPlacement placement)
+    {
+        if (_activeDashboard is null) return;
+
+        _activeDashboard.Widgets.Remove(placement);
+        // Re-index order values in-place
+        var ordered = _activeDashboard.Widgets.OrderBy(w => w.Order).ToList();
+        for (int i = 0; i < ordered.Count; i++)
+            ordered[i].Order = i;
+        await SaveDashboard();
+    }
+
+    private async Task OnWidgetConfigChanged(WidgetPlacement placement, JsonObject config)
+    {
+        placement.Config = config;
+        await SaveDashboard();
+    }
+
+    private async Task OnWidgetSizeChanged((int cols, int rows) size)
+    {
+        await SaveDashboard();
+    }
+
+    private void OnWidgetEditMode(bool editing)
+    {
+        _widgetEditMode = editing;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void OpenConfigPanel(WidgetPlacement placement, WidgetDescriptor descriptor)
+    {
+        _configuringPlacement = placement;
+        _configuringDescriptor = descriptor;
+    }
+
+    private async Task SaveWidgetConfig(JsonObject config)
+    {
+        if (_configuringPlacement is not null)
+        {
+            _configuringPlacement.Config = config;
+            _pendingConfiguration = false;
+            _configuringPlacement = null;
+            _configuringDescriptor = null;
+            await SaveDashboard();
+        }
+    }
+
+    private Task CloseConfigPanel()
+    {
+        if (_pendingConfiguration && _configuringPlacement is not null && _activeDashboard is not null)
+        {
+            // User cancelled config for a newly added widget — remove it
+            _activeDashboard.Widgets.Remove(_configuringPlacement);
+            var ordered = _activeDashboard.Widgets.OrderBy(w => w.Order).ToList();
+            for (int i = 0; i < ordered.Count; i++)
+                ordered[i].Order = i;
+            _activeDashboard.Widgets = ordered;
+        }
+        _pendingConfiguration = false;
+        _configuringPlacement = null;
+        _configuringDescriptor = null;
+        return Task.CompletedTask;
+    }
+
+    private async Task OnDashboardNameChanged(ChangeEventArgs e)
+    {
+        if (_activeDashboard is null) return;
+        var newName = e.Value?.ToString()?.Trim();
+        if (!string.IsNullOrEmpty(newName))
+        {
+            _activeDashboard.Name = newName;
+            await SaveDashboard();
+        }
+    }
+
+    private async Task ExportDashboard()
+    {
+        if (_activeDashboard is null) return;
+
+        // Create a clean export object without internal state
+        var export = new
+        {
+            Version = 1,
+            _activeDashboard.Name,
+            _activeDashboard.Description,
+            Widgets = _activeDashboard.Widgets.OrderBy(w => w.Order).Select(w => new
+            {
+                w.WidgetType,
+                w.ColumnSize,
+                w.RowSpan,
+                w.Offset,
+                w.Row,
+                w.Order,
+                w.Config
+            })
+        };
+
+        var json = JsonSerializer.Serialize(export, new JsonSerializerOptions { WriteIndented = true });
+        var safeName = _activeDashboard.Name.Replace(" ", "-").ToLowerInvariant();
+        await JsInterop.DownloadJsonAsync($"dashboard-{safeName}.json", json, Interactive, _disposeCts.Token);
+    }
+
+    private async Task ImportDashboard()
+    {
+        var json = await JsInterop.ReadFileAsTextAsync(_importFileInput, Interactive, _disposeCts.Token);
+        if (string.IsNullOrWhiteSpace(json)) return;
+        if (_activeDashboard is null || _collection is null) return;
+
+        try
+        {
+            var imported = JsonNode.Parse(json) as JsonObject;
+            if (imported is null) return;
+
+            var name = imported["Name"]?.GetValue<string>() ?? "Imported Dashboard";
+            var description = imported["Description"]?.GetValue<string>();
+            var widgetsArray = imported["Widgets"] as JsonArray;
+
+            var dashboard = new DashboardDefinition
+            {
+                Id = Guid.NewGuid().ToString(),
+                Name = name,
+                Description = description
+            };
+
+            if (widgetsArray is not null)
+            {
+                var order = 0;
+                foreach (var w in widgetsArray)
+                {
+                    if (w is not JsonObject wo) continue;
+                    dashboard.Widgets.Add(new WidgetPlacement
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        WidgetType = wo["WidgetType"]?.GetValue<string>() ?? "",
+                        ColumnSize = wo["ColumnSize"]?.GetValue<int>() ?? 6,
+                        RowSpan = wo["RowSpan"]?.GetValue<int>() ?? 1,
+                        // Preserve null (auto-flow). Coercing missing offsets to 0 would pin
+                        // every imported widget to column 0 under the new nullable semantics.
+                        Offset = wo["Offset"]?.GetValue<int?>(),
+                        Row = wo["Row"]?.GetValue<int?>(),
+                        Order = order++,
+                        Config = wo["Config"]?.DeepClone() as JsonObject
+                    });
+                }
+            }
+
+            // Replace the active dashboard in-place within the collection so the
+            // owner-keyed save persists the imported layout as the active one.
+            var idx = _collection.Dashboards.FindIndex(d => d.Id == _activeDashboard.Id);
+            if (idx >= 0)
+                _collection.Dashboards[idx] = dashboard;
+            else
+                _collection.Dashboards.Add(dashboard);
+            _collection.ActiveDashboardId = dashboard.Id;
+            _activeDashboard = dashboard;
+
+            await SaveDashboard();
+            await ResetGrid();
+        }
+        catch
+        {
+            // Invalid JSON — silently ignore
+        }
+    }
+
+    private async Task SaveDashboard()
+    {
+        if (string.IsNullOrEmpty(OwnerKey) || _collection is null || _activeDashboard is null)
+            return;
+        await DashboardService.SaveAsync(OwnerKey, _collection, _disposeCts.Token);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        _disposeCts.Cancel();
+        _disposeCts.Dispose();
+        _dotNetRef?.Dispose();
+        await JsInterop.DestroyGridAsync(Interactive, CancellationToken.None);
+    }
+}
