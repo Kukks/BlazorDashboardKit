@@ -9,19 +9,24 @@
                 <span class="small">@Descriptor.Name</span>
             </div>
             <div class="widget-controls">
-                <button class="widget-control-btn" title="@(Placement.Locked ? "Unlock widget" : "Lock widget")"
+                <button class="widget-control-btn" type="button"
+                        title="@(Placement.Locked ? "Unlock widget" : "Lock widget")"
+                        aria-label="@(Placement.Locked ? "Unlock widget" : "Lock widget")"
                         @onclick="OnToggleLock">
                     <span aria-hidden="true">@(Placement.Locked ? "🔒" : "🔓")</span>
                 </button>
-                <button class="widget-control-btn" title="Configure widget"
+                <button class="widget-control-btn" type="button"
+                        title="Configure widget" aria-label="Configure widget"
                         @onclick="OnConfigure">
                     <span class="icon icon-settings" aria-hidden="true"></span>
                 </button>
-                <button class="widget-control-btn" title="Duplicate widget"
+                <button class="widget-control-btn" type="button"
+                        title="Duplicate widget" aria-label="Duplicate widget"
                         @onclick="OnDuplicate">
                     <span aria-hidden="true">⧉</span>
                 </button>
-                <button class="widget-control-btn widget-control-btn--danger" title="Remove widget"
+                <button class="widget-control-btn widget-control-btn--danger" type="button"
+                        title="Remove widget" aria-label="Remove widget"
                         @onclick="OnRemove">
                     <span class="icon icon-cross" aria-hidden="true"></span>
                 </button>

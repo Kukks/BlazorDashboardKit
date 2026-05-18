@@ -1,3 +1,9 @@
+@if (_open)
+{
+    @* Pure-Blazor click-outside: a transparent full-viewport backdrop behind
+       the menu. No Bootstrap JS, no document listeners, no JS interop. *@
+    <div class="bdk-dropdown-backdrop" @onclick="Close"></div>
+}
 <div class="dropdown @(_open ? "show" : null)">
     <button class="btn btn-outline-primary btn-sm dropdown-toggle" type="button"
             @onclick="Toggle" aria-expanded="@(_open ? "true" : "false")">
@@ -32,6 +38,8 @@
     [Parameter] public EventCallback<WidgetDescriptor> OnWidgetAdded { get; set; }
 
     private void Toggle() => _open = !_open;
+
+    private void Close() => _open = false;
 
     private async Task AddWidget(WidgetDescriptor descriptor)
     {

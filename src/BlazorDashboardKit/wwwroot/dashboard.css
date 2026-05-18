@@ -237,6 +237,19 @@
     visibility: hidden;
 }
 
+/* ── Dropdown click-outside (pure CSS/Blazor, no JS) ── */
+.bdk-dropdown-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 1010;
+    background: transparent;
+}
+
+/* The open menu must sit above its backdrop so its items stay clickable. */
+.dropdown-menu.show {
+    z-index: 1020;
+}
+
 /* ── Dashboard header ── */
 .dashboard-header .dropdown-menu {
     min-width: 200px;

@@ -35,6 +35,10 @@ else
         {
             <WidgetPicker Available="_availableWidgets"
                           OnWidgetAdded="AddWidget" />
+            @if (_actionsOpen)
+            {
+                <div class="bdk-dropdown-backdrop" @onclick="() => _actionsOpen = false"></div>
+            }
             <div class="dropdown @(_actionsOpen ? "show" : null)">
                 <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button"
                         @onclick="ToggleActions" disabled="@_widgetEditMode"

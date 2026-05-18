@@ -77,6 +77,35 @@ public class DashboardHostTests : TestContext
     }
 
     [Fact]
+    public void Actions_Menu_Closes_On_Click_Outside_Backdrop()
+    {
+        JSInterop.Mode = JSRuntimeMode.Loose;
+        Services.AddSingleton<IDashboardStore>(new InMemoryDashboardStore());
+        Services.AddSingleton<IWidgetAccessControl, AllowAllWidgetAccessControl>();
+        Services.AddSingleton(new WidgetRegistry(Array.Empty<WidgetDescriptor>()));
+        Services.AddScoped<DashboardService>();
+        Services.AddScoped<DashboardJsInterop>(_ => new DashboardJsInterop(JSInterop.JSRuntime));
+
+        var cut = RenderComponent<BlazorDashboardKit.Components.DashboardHost>(p => p
+            .Add(x => x.OwnerKey, "owner-1")
+            .Add(x => x.EditMode, true));
+
+        cut.WaitForState(
+            () => cut.FindAll("button.btn-outline-secondary.dropdown-toggle").Count == 1,
+            TimeSpan.FromSeconds(5));
+
+        IElement ActionsMenu() => cut
+            .Find("button.btn-outline-secondary.dropdown-toggle")
+            .ParentElement!.QuerySelector(".dropdown-menu")!;
+
+        cut.Find("button.btn-outline-secondary.dropdown-toggle").Click();
+        Assert.Contains("show", ActionsMenu().ClassList);
+
+        cut.Find(".bdk-dropdown-backdrop").Click();
+        Assert.DoesNotContain("show", ActionsMenu().ClassList);
+    }
+
+    [Fact]
     public void Actions_Menu_Closes_After_Choosing_Export()
     {
         // Parity with the widget picker: choosing an item dismisses the menu,

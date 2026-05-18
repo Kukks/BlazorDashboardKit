@@ -13,6 +13,9 @@ follow [Semantic Versioning](https://semver.org/).
   deep-copied (independent) config.
 - `DashboardHost.OnDashboardChanged` event raised after every persisted change
   (external sync / analytics / autosave hooks).
+- Dropdowns (widget picker, Actions) now close on click-outside via a
+  pure-Blazor transparent backdrop — still no Bootstrap JS.
+- `aria-label`s on the icon-only widget control buttons.
 - **Component-based widget configuration**: a widget points
   `WidgetDescriptor.ConfigComponentType` at a component deriving
   `WidgetConfigComponent<TConfig>`, replacing the schema dictionary.
