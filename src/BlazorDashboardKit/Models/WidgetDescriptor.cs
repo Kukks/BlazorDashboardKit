@@ -2,11 +2,13 @@ namespace BlazorDashboardKit.Models;
 
 public enum ConfigFieldType { Text, Textarea, Number, Select, Checkbox, Hidden }
 
+public sealed record SelectOption(string Value, string Label);
+
 public class ConfigFieldSchema
 {
     public string Label { get; set; } = string.Empty;
     public ConfigFieldType FieldType { get; set; } = ConfigFieldType.Text;
-    public List<(string Value, string Label)> Options { get; set; } = new();
+    public List<SelectOption> Options { get; set; } = new();
     public int? Min { get; set; }
     public int? Max { get; set; }
     public int? Rows { get; set; }
@@ -26,7 +28,7 @@ public class WidgetDescriptor
     public int MaxRowSpan { get; set; } = 4;
     public int DefaultRowSpan { get; set; } = 2;
     /// <summary>Opaque permission tokens; interpreted only by IWidgetAccessControl.</summary>
-    public string[] RequiredPermissions { get; set; } = Array.Empty<string>();
+    public string[] RequiredPermissions { get; set; } = [];
     public bool AllowMultiple { get; set; } = true;
     public bool RequiresConfiguration { get; set; }
     public bool AlwaysInteractive { get; set; }
