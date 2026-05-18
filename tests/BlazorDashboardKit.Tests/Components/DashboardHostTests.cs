@@ -199,6 +199,39 @@ public class DashboardHostTests : TestContext
     }
 
     [Fact]
+    public void Duplicating_A_Widget_Adds_An_Independent_Copy()
+    {
+        var js = new RecordingJsRuntime();
+        var descriptor = new WidgetDescriptor
+        {
+            Type = "Test", Name = "Test Widget", Category = "Demo",
+            ComponentType = typeof(TestWidget)
+        };
+        Services.AddSingleton<IDashboardStore>(new InMemoryDashboardStore());
+        Services.AddSingleton<IWidgetAccessControl, AllowAllWidgetAccessControl>();
+        Services.AddSingleton(new WidgetRegistry(new[] { descriptor }));
+        Services.AddScoped<DashboardService>();
+        Services.AddScoped(_ => new DashboardJsInterop(js));
+
+        var cut = RenderComponent<BlazorDashboardKit.Components.DashboardHost>(p => p
+            .Add(x => x.OwnerKey, "owner-1")
+            .Add(x => x.EditMode, true));
+
+        cut.WaitForState(() => js.InitGridCalls == 1, TimeSpan.FromSeconds(5));
+        cut.Find("button.btn-outline-primary.dropdown-toggle").Click();
+        cut.Find("button.dropdown-item.small").Click();
+        cut.WaitForState(() => cut.FindAll(".grid-stack-item").Count == 1, TimeSpan.FromSeconds(5));
+
+        cut.Find("button[title='Duplicate widget']").Click();
+        cut.WaitForState(() => cut.FindAll(".grid-stack-item").Count == 2, TimeSpan.FromSeconds(5));
+
+        var ids = cut.FindAll(".grid-stack-item").Select(e => e.GetAttribute("gs-id")).ToList();
+        Assert.Equal(2, ids.Count);
+        Assert.Equal(2, ids.Distinct().Count());                 // distinct placement ids
+        Assert.Equal(2, cut.FindAll(".test-widget-body").Count);  // both render the same widget
+    }
+
+    [Fact]
     public void Locking_A_Widget_Emits_GridStack_Lock_Attributes()
     {
         var js = new RecordingJsRuntime();

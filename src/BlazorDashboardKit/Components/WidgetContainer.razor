@@ -17,6 +17,10 @@
                         @onclick="OnConfigure">
                     <span class="icon icon-settings" aria-hidden="true"></span>
                 </button>
+                <button class="widget-control-btn" title="Duplicate widget"
+                        @onclick="OnDuplicate">
+                    <span aria-hidden="true">⧉</span>
+                </button>
                 <button class="widget-control-btn widget-control-btn--danger" title="Remove widget"
                         @onclick="OnRemove">
                     <span class="icon icon-cross" aria-hidden="true"></span>
@@ -63,6 +67,7 @@
     [Parameter] public EventCallback<(int cols, int rows)> OnSizeChanged { get; set; }
     [Parameter] public EventCallback OnConfigure { get; set; }
     [Parameter] public EventCallback OnToggleLock { get; set; }
+    [Parameter] public EventCallback OnDuplicate { get; set; }
 
     private ErrorBoundary? _errorBoundary;
 

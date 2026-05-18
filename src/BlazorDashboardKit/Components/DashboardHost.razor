@@ -105,6 +105,7 @@ else
                                          OnRemove="() => RemoveWidget(wp.Placement)"
                                          OnSizeChanged="(_) => OnWidgetSizeChanged()"
                                          OnToggleLock="() => ToggleWidgetLock(wp.Placement)"
+                                         OnDuplicate="() => DuplicateWidget(wp.Placement)"
                                          OnConfigure="() => OpenConfigPanel(wp.Placement, descriptor)" />
                     }
                 </div>
@@ -423,6 +424,29 @@ else
         await SaveDashboard();
         // Rebuild the grid like AddWidget does: otherwise GridStack keeps a
         // stale model that still references the removed DOM node.
+        await ResetGrid();
+    }
+
+    private async Task DuplicateWidget(WidgetPlacement source)
+    {
+        if (_activeDashboard is null) return;
+
+        var clone = new WidgetPlacement
+        {
+            WidgetType = source.WidgetType,
+            ColumnSize = source.ColumnSize,
+            RowSpan = source.RowSpan,
+            Order = source.Order + 1,
+            // Independent config copy; never share the JsonObject instance.
+            Config = source.Config?.DeepClone()?.AsObject(),
+            // A fresh copy starts unlocked and auto-flows (no fixed x/y).
+            Locked = false
+        };
+        foreach (var w in _activeDashboard.Widgets.Where(w => w.Order > source.Order))
+            w.Order++;
+        _activeDashboard.Widgets.Add(clone);
+
+        await SaveDashboard();
         await ResetGrid();
     }
 

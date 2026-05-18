@@ -29,6 +29,7 @@ Run after any change to the dashboard host, widgets, interop, or CSS. Exercise o
 - [ ] `/ssr` renders read-only (no edit affordances) with a usable CSS-fallback layout — no 0×0 collapse, no crash; `AlwaysInteractive` widgets render read-only there too.
 - [ ] StandaloneWasm: an interactive widget (Counter) increments and the value survives reload (config-persisted).
 - [ ] Lock toggle (🔒/🔓 in the edit header) pins a widget: it can't be dragged/resized; state persists across reload.
+- [ ] Duplicate (⧉) adds an independent copy (own id, deep-cloned config, unlocked, auto-placed); editing one doesn't affect the other.
 - [ ] Resizing a widget honors the descriptor's Min/Max column/row size (gs-min/max-* emitted).
 - [ ] `GridOptions` (e.g. Columns=6) changes the grid layout; defaults match built-in behaviour when omitted.
 - [ ] Under OS dark mode the kit auto-uses the dark palette; an explicit `--bdk-*` override still wins.
