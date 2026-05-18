@@ -1,0 +1,80 @@
+@using System.Text.Json.Nodes
+@using System.Threading
+@using BlazorDashboardKit.Models
+@inherits BlazorDashboardKit.Components.BaseWidgetComponent<ClockWidget.ClockConfig>
+@implements IDisposable
+
+<header class="mb-2">
+    <h6 class="mb-0">@(TypedConfig?.Title ?? "Clock")</h6>
+</header>
+<div class="display-6 text-center">@_now.ToString(Format)</div>
+
+@code {
+    private DateTime _now = DateTime.Now;
+    private PeriodicTimer? _timer;
+    private CancellationTokenSource? _timerCts;
+
+    private string Format =>
+        string.IsNullOrWhiteSpace(TypedConfig?.Format) ? "HH:mm:ss" : TypedConfig!.Format;
+
+    public class ClockConfig
+    {
+        public string Title { get; set; } = "Clock";
+        public string Format { get; set; } = "HH:mm:ss";
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // Render-mode-safe: the ticking timer is only started once an interactive
+        // renderer is driving this component. Static SSR / prerender never reach
+        // OnAfterRenderAsync, so no background timer runs during a static render.
+        if (firstRender && _timer is null)
+        {
+            _timerCts = new CancellationTokenSource();
+            _timer = new PeriodicTimer(TimeSpan.FromSeconds(1));
+            _ = RunTimerAsync(_timerCts.Token);
+        }
+        await base.OnAfterRenderAsync(firstRender);
+    }
+
+    private async Task RunTimerAsync(CancellationToken ct)
+    {
+        try
+        {
+            while (await _timer!.WaitForNextTickAsync(ct))
+            {
+                _now = DateTime.Now;
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Disposed while waiting for the next tick; nothing to do.
+        }
+    }
+
+    void IDisposable.Dispose()
+    {
+        try { _timerCts?.Cancel(); } catch (ObjectDisposedException) { }
+        _timer?.Dispose();
+        _timerCts?.Dispose();
+        base.Dispose();
+    }
+
+    public static readonly WidgetDescriptor Descriptor = new()
+    {
+        Type = "Clock",
+        Name = "Clock",
+        Description = "Shows the current time, ticking once per second",
+        Category = "Demo",
+        AlwaysInteractive = true,
+        MinColumnSize = 2,
+        MaxColumnSize = 6,
+        DefaultColumnSize = 3,
+        ConfigSchema = new()
+        {
+            ["Title"] = new ConfigFieldSchema { Label = "Title", FieldType = ConfigFieldType.Text },
+            ["Format"] = new ConfigFieldSchema { Label = "Time format", FieldType = ConfigFieldType.Text }
+        }
+    };
+}

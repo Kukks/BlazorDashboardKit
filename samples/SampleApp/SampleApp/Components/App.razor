@@ -7,6 +7,8 @@
     <base href="/" />
     <link rel="stylesheet" href="bootstrap/bootstrap.min.css" />
     <link rel="stylesheet" href="app.css" />
+    <link rel="stylesheet" href="_content/BlazorDashboardKit/gridstack/gridstack.min.css" />
+    <link rel="stylesheet" href="_content/BlazorDashboardKit/dashboard.css" />
     <link rel="stylesheet" href="SampleApp.styles.css" />
     <link rel="icon" type="image/png" href="favicon.png" />
     <HeadOutlet />
@@ -14,6 +16,9 @@
 
 <body>
     <Routes />
+    @* Global GridStack lib referenced by the kit's ESM interop via globalThis.GridStack.
+       dashboard-interop.js is an ESM module imported by the library itself — no tag here. *@
+    <script src="_content/BlazorDashboardKit/gridstack/gridstack-all.js"></script>
     <script src="_framework/blazor.web.js"></script>
 </body>
 

@@ -1,0 +1,38 @@
+@using BlazorDashboardKit.Models
+@inherits BlazorDashboardKit.Components.BaseWidgetComponent<StatsCardWidget.StatsCardConfig>
+
+@* Static metric card: no timer, no JS — safe in every render mode. *@
+<div class="card border-0 h-100">
+    <div class="card-body text-center">
+        <div class="text-muted small text-uppercase mb-1">
+            @(string.IsNullOrWhiteSpace(TypedConfig?.Title) ? "Stat" : TypedConfig!.Title)
+        </div>
+        <div class="display-6 fw-bold">
+            @(string.IsNullOrWhiteSpace(TypedConfig?.Value) ? "—" : TypedConfig!.Value)
+        </div>
+    </div>
+</div>
+
+@code {
+    public class StatsCardConfig
+    {
+        public string Title { get; set; } = "Stat";
+        public string Value { get; set; } = "";
+    }
+
+    public static readonly WidgetDescriptor Descriptor = new()
+    {
+        Type = "StatsCard",
+        Name = "Stats Card",
+        Description = "A static metric card showing a configured title and value",
+        Category = "Demo",
+        MinColumnSize = 2,
+        MaxColumnSize = 6,
+        DefaultColumnSize = 3,
+        ConfigSchema = new()
+        {
+            ["Title"] = new ConfigFieldSchema { Label = "Title", FieldType = ConfigFieldType.Text },
+            ["Value"] = new ConfigFieldSchema { Label = "Value", FieldType = ConfigFieldType.Text }
+        }
+    };
+}

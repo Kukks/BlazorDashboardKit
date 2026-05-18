@@ -1,0 +1,11 @@
+@page "/wasm"
+@rendermode InteractiveWebAssembly
+
+@* InteractiveWebAssembly pages must live in the .Client project so the
+   component is in an assembly the WebAssembly runtime downloads and runs. *@
+
+<PageTitle>Sample Dashboard (WASM)</PageTitle>
+
+<h1>Sample Dashboard (WASM)</h1>
+
+<DashboardHost OwnerKey="demo-user" EditMode="true" />

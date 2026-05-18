@@ -1,0 +1,12 @@
+@page "/ssr"
+
+@* No @rendermode: this page is statically server-rendered. DashboardHost must
+   produce static markup with zero JS (it only touches JS once it reaches
+   OnAfterRenderAsync, which a static render never does). ReadOnly so no edit
+   affordances are emitted in a non-interactive context. *@
+
+<PageTitle>Sample Dashboard (Static SSR)</PageTitle>
+
+<h1>Sample Dashboard (Static SSR)</h1>
+
+<DashboardHost OwnerKey="demo-user" />
