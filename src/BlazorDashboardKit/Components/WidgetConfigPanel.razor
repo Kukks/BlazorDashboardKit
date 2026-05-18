@@ -48,7 +48,7 @@
                             <input type="number" class="form-control"
                                    min="@(schema.Min)" max="@(schema.Max)"
                                    value="@intVal"
-                                   @onchange="@(e => UpdateProperty(propName, int.TryParse(e.Value?.ToString(), out var v) ? v : 0))" />
+                                   @onchange="@(e => UpdateProperty(propName, int.TryParse(e.Value?.ToString(), out var v) ? v : (schema.Min ?? 0)))" />
                         }
                         else if (schema.FieldType == ConfigFieldType.Checkbox)
                         {
@@ -130,6 +130,7 @@
     private void UpdateProperty(string name, object value)
     {
         if (_editConfig is null) return;
+        if (value is null) { _editConfig.Remove(name); return; }
         _editConfig[name] = JsonValue.Create(value);
     }
 

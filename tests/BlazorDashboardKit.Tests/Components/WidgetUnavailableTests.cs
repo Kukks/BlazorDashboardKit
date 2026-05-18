@@ -14,4 +14,18 @@ public class WidgetUnavailableTests : TestContext
         Assert.Contains("widget-unavailable", cut.Markup);
         Assert.Contains("Ghost", cut.Markup);
     }
+
+    [Fact]
+    public void Remove_Button_Visibility_Gated_On_EditMode()
+    {
+        var hidden = RenderComponent<BlazorDashboardKit.Components.WidgetUnavailable>(p => p
+            .Add(x => x.Placement, new WidgetPlacement { WidgetType = "Ghost" })
+            .Add(x => x.EditMode, false));
+        Assert.Empty(hidden.FindAll("button"));
+
+        var shown = RenderComponent<BlazorDashboardKit.Components.WidgetUnavailable>(p => p
+            .Add(x => x.Placement, new WidgetPlacement { WidgetType = "Ghost" })
+            .Add(x => x.EditMode, true));
+        Assert.Single(shown.FindAll("button"));
+    }
 }
