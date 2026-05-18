@@ -38,4 +38,37 @@ public class DashboardHostTests : TestContext
         cut.WaitForState(() => cut.Markup.Contains("widget-unavailable"), TimeSpan.FromSeconds(5));
         Assert.Contains("widget-unavailable", cut.Markup);
     }
+
+    [Fact]
+    public void Empty_OwnerKey_Renders_Inert_Container_And_Never_Touches_Store()
+    {
+        // An empty OwnerKey means "no owner": the host must render the inert
+        // no-owner branch without ever resolving/saving against the store.
+        // ThrowingStore turns any store access into a hard test failure.
+        JSInterop.Mode = JSRuntimeMode.Loose;
+
+        Services.AddSingleton<IDashboardStore>(new ThrowingStore());
+        Services.AddSingleton<IWidgetAccessControl, AllowAllWidgetAccessControl>();
+        Services.AddSingleton(new WidgetRegistry(Array.Empty<WidgetDescriptor>()));
+        Services.AddScoped<DashboardService>();
+        Services.AddScoped<DashboardJsInterop>(_ => new DashboardJsInterop(JSInterop.JSRuntime));
+
+        var cut = RenderComponent<BlazorDashboardKit.Components.DashboardHost>(p => p
+            .Add(x => x.OwnerKey, ""));
+
+        Assert.Contains("dashboard-empty-container", cut.Markup);
+        Assert.DoesNotContain("dashboard-header", cut.Markup);
+    }
+
+    /// <summary>
+    /// Store whose every operation throws, so a single store access fails the test.
+    /// </summary>
+    private sealed class ThrowingStore : IDashboardStore
+    {
+        public Task<DashboardCollection?> LoadAsync(string ownerKey, CancellationToken ct = default)
+            => throw new InvalidOperationException("Store must not be accessed for an empty OwnerKey.");
+
+        public Task SaveAsync(string ownerKey, DashboardCollection collection, CancellationToken ct = default)
+            => throw new InvalidOperationException("Store must not be accessed for an empty OwnerKey.");
+    }
 }

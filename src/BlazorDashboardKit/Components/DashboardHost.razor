@@ -90,9 +90,9 @@ else
                                          EditMode="EditMode"
                                          WidgetEditMode="_widgetEditMode"
                                          OnConfigChanged="(config) => OnWidgetConfigChanged(wp.Placement, config)"
-                                         OnEditModeChanged="(editing) => OnWidgetEditMode(editing)"
+                                         OnEditModeChanged="OnWidgetEditMode"
                                          OnRemove="() => RemoveWidget(wp.Placement)"
-                                         OnSizeChanged="(size) => OnWidgetSizeChanged(size)"
+                                         OnSizeChanged="(_) => OnWidgetSizeChanged()"
                                          OnConfigure="() => OpenConfigPanel(wp.Placement, descriptor)" />
                     }
                 </div>
@@ -248,7 +248,17 @@ else
     {
         if (_activeDashboard is null) return;
 
-        var changes = JsonSerializer.Deserialize<List<GridChange>>(changesJson);
+        // changesJson crosses the JS interop boundary; a malformed payload must
+        // not throw out of this [JSInvokable] callback.
+        List<GridChange>? changes;
+        try
+        {
+            changes = JsonSerializer.Deserialize<List<GridChange>>(changesJson);
+        }
+        catch (JsonException)
+        {
+            return;
+        }
         if (changes is null || changes.Count == 0) return;
 
         foreach (var change in changes)
@@ -391,15 +401,15 @@ else
         await SaveDashboard();
     }
 
-    private async Task OnWidgetSizeChanged((int cols, int rows) size)
+    private async Task OnWidgetSizeChanged()
     {
         await SaveDashboard();
     }
 
-    private void OnWidgetEditMode(bool editing)
+    private async Task OnWidgetEditMode(bool editing)
     {
         _widgetEditMode = editing;
-        InvokeAsync(StateHasChanged);
+        await InvokeAsync(StateHasChanged);
     }
 
     private void OpenConfigPanel(WidgetPlacement placement, WidgetDescriptor descriptor)
@@ -532,9 +542,9 @@ else
             await SaveDashboard();
             await ResetGrid();
         }
-        catch
+        catch (JsonException)
         {
-            // Invalid JSON — silently ignore
+            // A malformed user-supplied import file must not crash the dashboard.
         }
     }
 
@@ -549,6 +559,8 @@ else
     {
         _disposeCts.Cancel();
         _disposeCts.Dispose();
+        // Sole owner of _dotNetRef: DashboardJsInterop only borrows it, so the host
+        // is responsible for disposing it here.
         _dotNetRef?.Dispose();
         await JsInterop.DestroyGridAsync(Interactive, CancellationToken.None);
     }

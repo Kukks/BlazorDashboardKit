@@ -40,9 +40,10 @@ public sealed class DashboardJsInterop : IAsyncDisposable
     /// No-op when <paramref name="interactive"/> is <c>false</c> (static SSR / prerender).
     /// </summary>
     /// <param name="dotNetHelper">
-    /// Optional .NET callback reference (e.g. for <c>OnGridChanged</c>). When supplied it is
-    /// cached and disposed by <see cref="DisposeAsync"/>; passing a new one replaces and
-    /// disposes any previously cached reference.
+    /// Optional .NET callback reference (e.g. for <c>OnGridChanged</c>). It is borrowed:
+    /// the caller (<c>DashboardHost</c>) owns and disposes it. When supplied it is cached
+    /// for forwarding into the grid; passing a new one replaces the cached reference
+    /// without disposing the previous (borrowed) one.
     /// </param>
     public async Task InitGridAsync(
         string containerId,
@@ -56,7 +57,8 @@ public sealed class DashboardJsInterop : IAsyncDisposable
 
         if (dotNetHelper is not null && !ReferenceEquals(dotNetHelper, _dotNetRef))
         {
-            _dotNetRef?.Dispose();
+            // Borrowed reference: cache it for forwarding only, never dispose it
+            // here — DashboardHost is its sole owner.
             _dotNetRef = dotNetHelper;
         }
 
@@ -142,15 +144,15 @@ public sealed class DashboardJsInterop : IAsyncDisposable
     // --- .NET callback reference ---
 
     /// <summary>
-    /// Caches the .NET callback reference so it can be disposed with this interop.
+    /// Caches the .NET callback reference for forwarding into the grid.
     /// Does not invoke JS; <see cref="InitGridAsync"/> forwards the cached reference
-    /// to the grid. Passing a new reference disposes the previously cached one.
+    /// to the grid. The reference is borrowed — its owner (<c>DashboardHost</c>) is
+    /// solely responsible for disposal; replacing it here does not dispose the prior one.
     /// </summary>
     public void RegisterDotNetRef(DotNetObjectReference<object> dotNetHelper)
     {
         if (ReferenceEquals(dotNetHelper, _dotNetRef))
             return;
-        _dotNetRef?.Dispose();
         _dotNetRef = dotNetHelper;
     }
 
@@ -169,7 +171,9 @@ public sealed class DashboardJsInterop : IAsyncDisposable
             _module = null;
         }
 
-        _dotNetRef?.Dispose();
+        // The .NET ref is borrowed: it is created and owned by the caller
+        // (DashboardHost), which is solely responsible for disposing it.
+        // We only hold it to forward into initGrid, so we just drop the reference.
         _dotNetRef = null;
     }
 }

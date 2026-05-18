@@ -27,6 +27,8 @@ internal sealed class DashboardService
     public async Task SaveAsync(string ownerKey, DashboardCollection collection, CancellationToken ct)
     {
         var fresh = await _store.LoadAsync(ownerKey, ct);
+        // Last-write-wins on the collection; the reload exists only to preserve an
+        // ActiveDashboardId set by another writer between our resolve and save.
         if (fresh is not null)
             collection.ActiveDashboardId ??= fresh.ActiveDashboardId;
         await _store.SaveAsync(ownerKey, collection, ct);
