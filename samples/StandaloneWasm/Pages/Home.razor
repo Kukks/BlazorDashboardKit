@@ -1,0 +1,14 @@
+@page "/"
+
+<PageTitle>BlazorDashboardKit — live demo</PageTitle>
+
+<h1>Live demo</h1>
+<p class="lead">
+    A pure Blazor WebAssembly page (no server, no SSR) hosting
+    <code>&lt;DashboardHost&gt;</code>. Add widgets, drag/resize them, configure
+    them via each widget's own config component, export/import the layout.
+    State is in-memory for this static demo — wire an
+    <code>IDashboardStore</code> for real persistence.
+</p>
+
+<DashboardHost OwnerKey="demo" EditMode="true" />

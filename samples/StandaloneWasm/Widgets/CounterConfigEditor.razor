@@ -1,0 +1,24 @@
+@inherits WidgetConfigComponent<CounterWidget.CounterConfig>
+
+<div class="mb-3">
+    <label class="form-label">Title</label>
+    <input class="form-control" value="@Model.Title" @onchange="OnTitle" />
+</div>
+<div class="mb-3">
+    <label class="form-label">Step</label>
+    <input class="form-control" type="number" min="1" value="@Model.Step" @onchange="OnStep" />
+</div>
+
+@code {
+    private async Task OnTitle(ChangeEventArgs e)
+    {
+        Model.Title = e.Value?.ToString() ?? "";
+        await NotifyChangedAsync();
+    }
+
+    private async Task OnStep(ChangeEventArgs e)
+    {
+        Model.Step = int.TryParse(e.Value?.ToString(), out var v) && v > 0 ? v : 1;
+        await NotifyChangedAsync();
+    }
+}

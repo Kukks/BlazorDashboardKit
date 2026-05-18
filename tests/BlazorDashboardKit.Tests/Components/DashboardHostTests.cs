@@ -1,9 +1,11 @@
+using AngleSharp.Dom;
 using BlazorDashboardKit.Abstractions;
 using BlazorDashboardKit.Models;
 using BlazorDashboardKit.Services;
 using BlazorDashboardKit.Stores;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.JSInterop;
 using Xunit;
 
 namespace BlazorDashboardKit.Tests.Components;
@@ -40,6 +42,74 @@ public class DashboardHostTests : TestContext
     }
 
     [Fact]
+    public void Actions_Menu_Toggles_Open_Without_Bootstrap_Js()
+    {
+        // The Actions dropdown must open via Blazor state, not Bootstrap's JS
+        // bundle (which the kit deliberately does not ship or require).
+        JSInterop.Mode = JSRuntimeMode.Loose;
+
+        Services.AddSingleton<IDashboardStore>(new InMemoryDashboardStore());
+        Services.AddSingleton<IWidgetAccessControl, AllowAllWidgetAccessControl>();
+        Services.AddSingleton(new WidgetRegistry(Array.Empty<WidgetDescriptor>()));
+        Services.AddScoped<DashboardService>();
+        Services.AddScoped<DashboardJsInterop>(_ => new DashboardJsInterop(JSInterop.JSRuntime));
+
+        var cut = RenderComponent<BlazorDashboardKit.Components.DashboardHost>(p => p
+            .Add(x => x.OwnerKey, "owner-1")
+            .Add(x => x.EditMode, true));
+
+        cut.WaitForState(
+            () => cut.FindAll("button.btn-outline-secondary.dropdown-toggle").Count == 1,
+            TimeSpan.FromSeconds(5));
+
+        IElement ActionsMenu() => cut
+            .Find("button.btn-outline-secondary.dropdown-toggle")
+            .ParentElement!
+            .QuerySelector(".dropdown-menu")!;
+
+        Assert.DoesNotContain("show", ActionsMenu().ClassList);
+
+        cut.Find("button.btn-outline-secondary.dropdown-toggle").Click();
+        Assert.Contains("show", ActionsMenu().ClassList);
+
+        cut.Find("button.btn-outline-secondary.dropdown-toggle").Click();
+        Assert.DoesNotContain("show", ActionsMenu().ClassList);
+    }
+
+    [Fact]
+    public void Actions_Menu_Closes_After_Choosing_Export()
+    {
+        // Parity with the widget picker: choosing an item dismisses the menu,
+        // the way Bootstrap's JS used to.
+        JSInterop.Mode = JSRuntimeMode.Loose;
+
+        Services.AddSingleton<IDashboardStore>(new InMemoryDashboardStore());
+        Services.AddSingleton<IWidgetAccessControl, AllowAllWidgetAccessControl>();
+        Services.AddSingleton(new WidgetRegistry(Array.Empty<WidgetDescriptor>()));
+        Services.AddScoped<DashboardService>();
+        Services.AddScoped<DashboardJsInterop>(_ => new DashboardJsInterop(JSInterop.JSRuntime));
+
+        var cut = RenderComponent<BlazorDashboardKit.Components.DashboardHost>(p => p
+            .Add(x => x.OwnerKey, "owner-1")
+            .Add(x => x.EditMode, true));
+
+        cut.WaitForState(
+            () => cut.FindAll("button.btn-outline-secondary.dropdown-toggle").Count == 1,
+            TimeSpan.FromSeconds(5));
+
+        IElement ActionsMenu() => cut
+            .Find("button.btn-outline-secondary.dropdown-toggle")
+            .ParentElement!
+            .QuerySelector(".dropdown-menu")!;
+
+        cut.Find("button.btn-outline-secondary.dropdown-toggle").Click();
+        Assert.Contains("show", ActionsMenu().ClassList);
+
+        cut.Find(".dropdown-menu .dropdown-item").Click(); // "Export"
+        Assert.DoesNotContain("show", ActionsMenu().ClassList);
+    }
+
+    [Fact]
     public void Empty_OwnerKey_Renders_Inert_Container_And_Never_Touches_Store()
     {
         // An empty OwnerKey means "no owner": the host must render the inert
@@ -58,6 +128,181 @@ public class DashboardHostTests : TestContext
 
         Assert.Contains("dashboard-empty-container", cut.Markup);
         Assert.DoesNotContain("dashboard-header", cut.Markup);
+    }
+
+    [Fact]
+    public void Grid_Is_Reinitialized_After_Adding_A_Widget()
+    {
+        // Repro: AddWidget -> ResetGrid() destroys the GridStack instance and sets
+        // _gridInitialized=false, expecting the next render to re-init. The sole
+        // InitGrid call site is gated on OnAfterRenderAsync's `firstRender`, which
+        // is true exactly once. So a widget added after first render is never
+        // adopted by GridStack and collapses to 0x0 at position 0,0. The grid
+        // MUST re-initialize after the widget set changes.
+        var js = new RecordingJsRuntime();
+        var descriptor = new WidgetDescriptor
+        {
+            Type = "Test",
+            Name = "Test Widget",
+            Category = "Demo",
+            ComponentType = typeof(TestWidget)
+        };
+
+        Services.AddSingleton<IDashboardStore>(new InMemoryDashboardStore());
+        Services.AddSingleton<IWidgetAccessControl, AllowAllWidgetAccessControl>();
+        Services.AddSingleton(new WidgetRegistry(new[] { descriptor }));
+        Services.AddScoped<DashboardService>();
+        Services.AddScoped(_ => new DashboardJsInterop(js));
+
+        var cut = RenderComponent<BlazorDashboardKit.Components.DashboardHost>(p => p
+            .Add(x => x.OwnerKey, "owner-1")
+            .Add(x => x.EditMode, true));
+
+        cut.WaitForState(() => js.InitGridCalls == 1, TimeSpan.FromSeconds(5));
+
+        cut.Find("button.btn-outline-primary.dropdown-toggle").Click(); // open picker
+        cut.Find("button.dropdown-item.small").Click();                  // add the widget
+
+        cut.WaitForState(() => js.InitGridCalls >= 2, TimeSpan.FromSeconds(5));
+        Assert.Equal(2, js.InitGridCalls);
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, true)]
+    public void Widget_Debug_Label_Is_Opt_In(bool showDebugInfo, bool expectLabel)
+    {
+        var js = new RecordingJsRuntime();
+        var descriptor = new WidgetDescriptor
+        {
+            Type = "Test", Name = "Test Widget", Category = "Demo",
+            ComponentType = typeof(TestWidget)
+        };
+
+        Services.AddSingleton<IDashboardStore>(new InMemoryDashboardStore());
+        Services.AddSingleton<IWidgetAccessControl, AllowAllWidgetAccessControl>();
+        Services.AddSingleton(new WidgetRegistry(new[] { descriptor }));
+        Services.AddScoped<DashboardService>();
+        Services.AddScoped(_ => new DashboardJsInterop(js));
+
+        var cut = RenderComponent<BlazorDashboardKit.Components.DashboardHost>(p => p
+            .Add(x => x.OwnerKey, "owner-1")
+            .Add(x => x.EditMode, true)
+            .Add(x => x.ShowDebugInfo, showDebugInfo));
+
+        cut.WaitForState(() => js.InitGridCalls == 1, TimeSpan.FromSeconds(5));
+        cut.Find("button.btn-outline-primary.dropdown-toggle").Click();
+        cut.Find("button.dropdown-item.small").Click();
+        cut.WaitForState(() => cut.Markup.Contains("test-widget-body"), TimeSpan.FromSeconds(5));
+
+        Assert.Equal(expectLabel, cut.Markup.Contains("widget-debug-label"));
+    }
+
+    [Fact]
+    public void Static_Fallback_Class_Is_Cleared_Once_Grid_Is_Live()
+    {
+        // The container carries `bdk-grid-static` (CSS fallback layout) until
+        // GridStack is initialized. Once live the class MUST be gone, otherwise
+        // its !important rules override GridStack's positioning.
+        var js = new RecordingJsRuntime();
+        var descriptor = new WidgetDescriptor
+        {
+            Type = "Test", Name = "Test Widget", Category = "Demo",
+            ComponentType = typeof(TestWidget)
+        };
+
+        Services.AddSingleton<IDashboardStore>(new InMemoryDashboardStore());
+        Services.AddSingleton<IWidgetAccessControl, AllowAllWidgetAccessControl>();
+        Services.AddSingleton(new WidgetRegistry(new[] { descriptor }));
+        Services.AddScoped<DashboardService>();
+        Services.AddScoped(_ => new DashboardJsInterop(js));
+
+        var cut = RenderComponent<BlazorDashboardKit.Components.DashboardHost>(p => p
+            .Add(x => x.OwnerKey, "owner-1")
+            .Add(x => x.EditMode, true));
+
+        cut.WaitForState(() => js.InitGridCalls == 1, TimeSpan.FromSeconds(5));
+        cut.WaitForState(
+            () => !cut.Find(".grid-stack").ClassList.Contains("bdk-grid-static"),
+            TimeSpan.FromSeconds(5));
+
+        Assert.DoesNotContain("bdk-grid-static", cut.Find(".grid-stack").ClassList);
+    }
+
+    [Fact]
+    public void Grid_Is_Reinitialized_After_Removing_A_Widget()
+    {
+        // AddWidget ends with ResetGrid() so the grid rebuilds; RemoveWidget must
+        // do the same. Otherwise GridStack keeps a stale internal model that still
+        // references the removed DOM node and the remaining widgets are not relaid.
+        var js = new RecordingJsRuntime();
+        var descriptor = new WidgetDescriptor
+        {
+            Type = "Test",
+            Name = "Test Widget",
+            Category = "Demo",
+            ComponentType = typeof(TestWidget)
+        };
+
+        Services.AddSingleton<IDashboardStore>(new InMemoryDashboardStore());
+        Services.AddSingleton<IWidgetAccessControl, AllowAllWidgetAccessControl>();
+        Services.AddSingleton(new WidgetRegistry(new[] { descriptor }));
+        Services.AddScoped<DashboardService>();
+        Services.AddScoped(_ => new DashboardJsInterop(js));
+
+        var cut = RenderComponent<BlazorDashboardKit.Components.DashboardHost>(p => p
+            .Add(x => x.OwnerKey, "owner-1")
+            .Add(x => x.EditMode, true));
+
+        cut.WaitForState(() => js.InitGridCalls == 1, TimeSpan.FromSeconds(5));
+
+        cut.Find("button.btn-outline-primary.dropdown-toggle").Click(); // open picker
+        cut.Find("button.dropdown-item.small").Click();                  // add widget
+        cut.WaitForState(() => js.InitGridCalls == 2, TimeSpan.FromSeconds(5));
+
+        cut.Find("button.widget-control-btn--danger").Click();           // remove widget
+        cut.WaitForState(() => js.InitGridCalls >= 3, TimeSpan.FromSeconds(5));
+        Assert.Equal(3, js.InitGridCalls);
+    }
+
+    /// <summary>
+    /// Minimal <see cref="IJSRuntime"/> that resolves the interop ESM module to a
+    /// recording stand-in, letting the test count how many times the host asks the
+    /// module to run <c>initGrid</c> without engaging bunit's module-mock machinery.
+    /// </summary>
+    private sealed class RecordingJsRuntime : IJSRuntime
+    {
+        private readonly RecordingModule _module = new();
+        public int InitGridCalls => _module.InitGridCalls;
+
+        public ValueTask<TValue> InvokeAsync<TValue>(string identifier, object?[]? args)
+            => InvokeAsync<TValue>(identifier, CancellationToken.None, args);
+
+        public ValueTask<TValue> InvokeAsync<TValue>(
+            string identifier, CancellationToken cancellationToken, object?[]? args)
+        {
+            // DashboardJsInterop.InitGridAsync does: _js.InvokeAsync<IJSObjectReference>("import", ...)
+            if (identifier == "import")
+                return new ValueTask<TValue>((TValue)(object)_module);
+            return new ValueTask<TValue>(default(TValue)!);
+        }
+
+        private sealed class RecordingModule : IJSObjectReference
+        {
+            public int InitGridCalls;
+
+            public ValueTask<TValue> InvokeAsync<TValue>(string identifier, object?[]? args)
+                => InvokeAsync<TValue>(identifier, CancellationToken.None, args);
+
+            public ValueTask<TValue> InvokeAsync<TValue>(
+                string identifier, CancellationToken cancellationToken, object?[]? args)
+            {
+                if (identifier == "initGrid") InitGridCalls++;
+                return new ValueTask<TValue>(default(TValue)!);
+            }
+
+            public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+        }
     }
 
     /// <summary>

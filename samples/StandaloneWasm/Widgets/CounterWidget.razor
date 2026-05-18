@@ -1,0 +1,46 @@
+@inherits BaseWidgetComponent<CounterWidget.CounterConfig>
+
+<header class="mb-2"><h6 class="mb-0">@(TypedConfig?.Title ?? "Counter")</h6></header>
+<div class="d-flex align-items-center gap-3">
+    <button class="btn btn-outline-secondary btn-sm" disabled="@Readonly" @onclick="Decrement">−</button>
+    <span class="display-6">@(TypedConfig?.Count ?? 0)</span>
+    <button class="btn btn-outline-secondary btn-sm" disabled="@Readonly" @onclick="Increment">+</button>
+</div>
+
+@code {
+    public class CounterConfig
+    {
+        public string Title { get; set; } = "Counter";
+        public int Count { get; set; }
+        public int Step { get; set; } = 1;
+    }
+
+    private Task Increment() => Bump(+1);
+    private Task Decrement() => Bump(-1);
+
+    private async Task Bump(int sign)
+    {
+        var cfg = new CounterConfig
+        {
+            Title = TypedConfig?.Title ?? "Counter",
+            Step = TypedConfig?.Step ?? 1,
+            Count = (TypedConfig?.Count ?? 0) + sign * (TypedConfig?.Step ?? 1)
+        };
+        // Persisting through the config is how widget state survives reloads /
+        // export-import — the dashboard owns the durable state.
+        await ConfigChanged.InvokeAsync(
+            System.Text.Json.JsonSerializer.SerializeToNode(cfg)!.AsObject());
+    }
+
+    public static readonly WidgetDescriptor Descriptor = new()
+    {
+        Type = "Counter",
+        Name = "Counter",
+        Description = "An interactive counter whose value persists with the dashboard",
+        Category = "Demo",
+        AlwaysInteractive = true,
+        DefaultColumnSize = 3,
+        DefaultRowSpan = 2,
+        ConfigComponentType = typeof(CounterConfigEditor)
+    };
+}

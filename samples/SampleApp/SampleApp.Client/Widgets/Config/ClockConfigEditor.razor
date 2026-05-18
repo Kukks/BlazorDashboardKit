@@ -1,0 +1,25 @@
+@inherits WidgetConfigComponent<ClockWidget.ClockConfig>
+
+<div class="mb-3">
+    <label class="form-label">Title</label>
+    <input class="form-control" value="@Model.Title" @onchange="OnTitleChanged" />
+</div>
+<div class="mb-3">
+    <label class="form-label">Time format</label>
+    <input class="form-control" value="@Model.Format" @onchange="OnFormatChanged" />
+    <div class="form-text">.NET date/time format string, e.g. <code>HH:mm:ss</code> or <code>h:mm tt</code>.</div>
+</div>
+
+@code {
+    private async Task OnTitleChanged(ChangeEventArgs e)
+    {
+        Model.Title = e.Value?.ToString() ?? "";
+        await NotifyChangedAsync();
+    }
+
+    private async Task OnFormatChanged(ChangeEventArgs e)
+    {
+        Model.Format = e.Value?.ToString() ?? "";
+        await NotifyChangedAsync();
+    }
+}

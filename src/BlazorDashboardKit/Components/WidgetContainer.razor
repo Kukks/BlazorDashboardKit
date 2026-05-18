@@ -36,7 +36,7 @@
     </ErrorBoundary>
 </div>
 
-@if (EditMode)
+@if (EditMode && ShowDebugInfo)
 {
     <div class="widget-debug-label">@Placement.Offset,@Placement.Order,@(Placement.ColumnSize)c,@(Placement.RowSpan)r</div>
 }
@@ -48,6 +48,11 @@
     [Parameter] public string UserId { get; set; } = string.Empty;
     [Parameter] public bool EditMode { get; set; }
     [Parameter] public bool WidgetEditMode { get; set; }
+    [Parameter] public bool ShowDebugInfo { get; set; }
+    /// <summary>Host is in read-only mode (no editing affordances).</summary>
+    [Parameter] public bool ReadOnly { get; set; }
+    /// <summary>Host has reached an interactive render. False during static SSR / prerender.</summary>
+    [Parameter] public bool HostInteractive { get; set; } = true;
     [Parameter] public EventCallback<JsonObject> OnConfigChanged { get; set; }
     [Parameter] public EventCallback<bool> OnEditModeChanged { get; set; }
     [Parameter] public EventCallback OnRemove { get; set; }
@@ -64,10 +69,19 @@
     private int _lastSize;
     private JsonObject? _lastConfig;
 
+    // A widget is read-only when the host is read-only or not yet interactive
+    // (static SSR / prerender — nothing can be interactive there, even an
+    // AlwaysInteractive widget). Otherwise AlwaysInteractive widgets stay live;
+    // the rest are read-only unless this widget is in its own edit sub-mode.
+    private bool ComputeReadonly()
+        => ReadOnly || !HostInteractive
+            ? true
+            : (Descriptor.AlwaysInteractive ? false : (!EditMode || WidgetEditMode));
+
     protected override void OnParametersSet()
     {
         // Invalidate cached parameters when inputs change
-        var currentReadonly = Descriptor.AlwaysInteractive ? false : (!EditMode || WidgetEditMode);
+        var currentReadonly = ComputeReadonly();
         if (_cachedParameters is null
             || _lastStoreId != StoreId
             || _lastUserId != UserId
@@ -92,7 +106,7 @@
         {
             { "StoreId", StoreId },
             { "UserId", UserId },
-            { "Readonly", Descriptor.AlwaysInteractive ? false : (!EditMode || WidgetEditMode) },
+            { "Readonly", ComputeReadonly() },
             { "Size", Placement.ColumnSize },
             { "Config", Placement.Config! },
             { "RequiredPermissions", Descriptor.RequiredPermissions },

@@ -1,9 +1,9 @@
-<div class="dropdown">
+<div class="dropdown @(_open ? "show" : null)">
     <button class="btn btn-outline-primary btn-sm dropdown-toggle" type="button"
-            data-bs-toggle="dropdown" aria-expanded="false">
+            @onclick="Toggle" aria-expanded="@(_open ? "true" : "false")">
         Add Widget
     </button>
-    <div class="dropdown-menu dropdown-menu-end" style="min-width: 260px; max-height: 400px; overflow-y: auto;">
+    <div class="dropdown-menu dropdown-menu-end @(_open ? "show" : null)" style="min-width: 260px; max-height: 400px; overflow-y: auto;">
         @foreach (var group in Available.GroupBy(d => d.Category).OrderBy(g => g.Key))
         {
             <div class="widget-picker-category">@group.Key</div>
@@ -26,11 +26,16 @@
 </div>
 
 @code {
+    private bool _open;
+
     [Parameter] public IReadOnlyList<WidgetDescriptor> Available { get; set; } = Array.Empty<WidgetDescriptor>();
     [Parameter] public EventCallback<WidgetDescriptor> OnWidgetAdded { get; set; }
 
+    private void Toggle() => _open = !_open;
+
     private async Task AddWidget(WidgetDescriptor descriptor)
     {
+        _open = false;
         await OnWidgetAdded.InvokeAsync(descriptor);
     }
 }

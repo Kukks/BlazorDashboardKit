@@ -1,0 +1,14 @@
+@* Standalone Blazor WebAssembly host. No server, no SSR — pure static files,
+   deployable to GitHub Pages. The kit's JS initializer auto-injects its CSS +
+   GridStack, so index.html stays minimal. *@
+<Router AppAssembly="@typeof(App).Assembly">
+    <Found Context="routeData">
+        <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
+        <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+    </Found>
+    <NotFound>
+        <LayoutView Layout="@typeof(MainLayout)">
+            <p role="alert">Page not found.</p>
+        </LayoutView>
+    </NotFound>
+</Router>

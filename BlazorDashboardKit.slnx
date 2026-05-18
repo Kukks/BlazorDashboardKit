@@ -1,5 +1,7 @@
 <Solution>
-  <Folder Name="/samples/" />
+  <Folder Name="/samples/">
+    <Project Path="samples/StandaloneWasm/StandaloneWasm.csproj" />
+  </Folder>
   <Folder Name="/samples/SampleApp/">
     <Project Path="samples/SampleApp/SampleApp.Client/SampleApp.Client.csproj" />
     <Project Path="samples/SampleApp/SampleApp/SampleApp.csproj" />

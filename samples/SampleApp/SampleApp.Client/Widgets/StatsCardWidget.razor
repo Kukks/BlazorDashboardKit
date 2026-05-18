@@ -29,10 +29,6 @@
         MinColumnSize = 2,
         MaxColumnSize = 6,
         DefaultColumnSize = 3,
-        ConfigSchema = new()
-        {
-            ["Title"] = new ConfigFieldSchema { Label = "Title", FieldType = ConfigFieldType.Text },
-            ["Value"] = new ConfigFieldSchema { Label = "Value", FieldType = ConfigFieldType.Text }
-        }
+        ConfigComponentType = typeof(Config.StatsCardConfigEditor)
     };
 }

@@ -1,0 +1,24 @@
+@inherits WidgetConfigComponent<StatsCardWidget.StatsCardConfig>
+
+<div class="mb-3">
+    <label class="form-label">Title</label>
+    <input class="form-control" value="@Model.Title" @onchange="OnTitleChanged" />
+</div>
+<div class="mb-3">
+    <label class="form-label">Value</label>
+    <input class="form-control" value="@Model.Value" @onchange="OnValueChanged" />
+</div>
+
+@code {
+    private async Task OnTitleChanged(ChangeEventArgs e)
+    {
+        Model.Title = e.Value?.ToString() ?? "";
+        await NotifyChangedAsync();
+    }
+
+    private async Task OnValueChanged(ChangeEventArgs e)
+    {
+        Model.Value = e.Value?.ToString() ?? "";
+        await NotifyChangedAsync();
+    }
+}

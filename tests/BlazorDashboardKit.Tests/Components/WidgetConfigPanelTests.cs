@@ -1,5 +1,4 @@
 using System.Text.Json.Nodes;
-using BlazorDashboardKit.Models;
 using Bunit;
 using Xunit;
 
@@ -8,40 +7,49 @@ namespace BlazorDashboardKit.Tests.Components;
 public class WidgetConfigPanelTests : TestContext
 {
     [Fact]
-    public void Renders_Text_Field_From_Schema()
+    public void Renders_The_Widgets_Config_Component()
     {
-        var schema = new Dictionary<string, ConfigFieldSchema>
-            { ["Title"] = new() { Label = "Title", FieldType = ConfigFieldType.Text } };
         var cut = RenderComponent<BlazorDashboardKit.Components.WidgetConfigPanel>(p => p
             .Add(x => x.Visible, true)
-            .Add(x => x.Schema, schema)
+            .Add(x => x.ConfigComponentType, typeof(TestConfigEditor))
+            .Add(x => x.Config, new JsonObject { ["Name"] = "hello" }));
+
+        var input = cut.Find("input.test-config-name");
+        Assert.Equal("hello", input.GetAttribute("value"));
+    }
+
+    [Fact]
+    public void No_Config_Component_Shows_Message_And_No_Save()
+    {
+        var cut = RenderComponent<BlazorDashboardKit.Components.WidgetConfigPanel>(p => p
+            .Add(x => x.Visible, true)
+            .Add(x => x.ConfigComponentType, (Type?)null)
             .Add(x => x.Config, new JsonObject()));
-        Assert.Contains("Title", cut.Markup);
-        Assert.Contains("input", cut.Markup);
+
+        Assert.Contains("no configuration", cut.Markup);
+        Assert.Empty(cut.FindAll(".btn-primary"));
     }
 
     [Fact]
     public void Save_Emits_Edited_Clone_Without_Mutating_Original_Config()
     {
-        var schema = new Dictionary<string, ConfigFieldSchema>
-            { ["Title"] = new() { Label = "Title", FieldType = ConfigFieldType.Text } };
-        var original = new JsonObject { ["Title"] = "old" };
+        var original = new JsonObject { ["Name"] = "old" };
         JsonObject? emitted = null;
 
         var cut = RenderComponent<BlazorDashboardKit.Components.WidgetConfigPanel>(p => p
             .Add(x => x.Visible, true)
-            .Add(x => x.Schema, schema)
+            .Add(x => x.ConfigComponentType, typeof(TestConfigEditor))
             .Add(x => x.Config, original)
             .Add(x => x.ConfigChanged, (JsonObject c) => emitted = c));
 
-        cut.Find("input").Change("new");
+        cut.Find("input.test-config-name").Change("new");
         cut.Find(".btn-primary").Click();
 
         // (a) emitted clone reflects the edit
         Assert.NotNull(emitted);
-        Assert.Equal("new", emitted!["Title"]!.GetValue<string>());
+        Assert.Equal("new", emitted!["Name"]!.GetValue<string>());
 
         // (b) the original instance passed in is untouched (deep-clone isolation)
-        Assert.Equal("old", original["Title"]!.GetValue<string>());
+        Assert.Equal("old", original["Name"]!.GetValue<string>());
     }
 }

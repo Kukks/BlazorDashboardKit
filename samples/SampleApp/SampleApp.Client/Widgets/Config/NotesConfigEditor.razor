@@ -1,0 +1,26 @@
+@inherits WidgetConfigComponent<NotesWidget.NotesConfig>
+
+<div class="mb-3">
+    <label class="form-label">Title</label>
+    <input class="form-control" value="@Model.Title"
+           @onchange="OnTitleChanged" />
+</div>
+<div class="mb-3">
+    <label class="form-label">Content</label>
+    <textarea class="form-control" rows="8"
+              @onchange="OnContentChanged">@Model.Content</textarea>
+</div>
+
+@code {
+    private async Task OnTitleChanged(ChangeEventArgs e)
+    {
+        Model.Title = e.Value?.ToString() ?? "";
+        await NotifyChangedAsync();
+    }
+
+    private async Task OnContentChanged(ChangeEventArgs e)
+    {
+        Model.Content = e.Value?.ToString() ?? "";
+        await NotifyChangedAsync();
+    }
+}

@@ -35,12 +35,13 @@ else
         {
             <WidgetPicker Available="_availableWidgets"
                           OnWidgetAdded="AddWidget" />
-            <div class="dropdown">
+            <div class="dropdown @(_actionsOpen ? "show" : null)">
                 <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button"
-                        data-bs-toggle="dropdown" disabled="@_widgetEditMode">
+                        @onclick="ToggleActions" disabled="@_widgetEditMode"
+                        aria-expanded="@(_actionsOpen ? "true" : "false")">
                     Actions
                 </button>
-                <div class="dropdown-menu dropdown-menu-end">
+                <div class="dropdown-menu dropdown-menu-end @(_actionsOpen ? "show" : null)">
                     <button class="dropdown-item" @onclick="ExportDashboard">Export</button>
                     <label class="dropdown-item mb-0" style="cursor: pointer;">
                         Import
@@ -60,7 +61,7 @@ else
     </div>
 </div>
 
-<div id="@_gridContainerId" class="grid-stack @(EditMode ? "dashboard-edit" : "")">
+<div id="@_gridContainerId" class="grid-stack @(EditMode ? "dashboard-edit" : "") @(_interactive && _gridInitialized ? null : "bdk-grid-static")">
     @if (_activeDashboard is not null && _activeDashboard.Widgets.Count > 0)
     {
         @foreach (var wp in ComputeGridPositions())
@@ -89,6 +90,9 @@ else
                                          UserId="@string.Empty"
                                          EditMode="EditMode"
                                          WidgetEditMode="_widgetEditMode"
+                                         ShowDebugInfo="ShowDebugInfo"
+                                         ReadOnly="ReadOnly"
+                                         HostInteractive="_interactive"
                                          OnConfigChanged="(config) => OnWidgetConfigChanged(wp.Placement, config)"
                                          OnEditModeChanged="OnWidgetEditMode"
                                          OnRemove="() => RemoveWidget(wp.Placement)"
@@ -109,7 +113,7 @@ else
 </div>
 
 <WidgetConfigPanel Visible="_configuringPlacement is not null"
-                   Schema="@(_configuringDescriptor?.ConfigSchema ?? new())"
+                   ConfigComponentType="_configuringDescriptor?.ConfigComponentType"
                    Config="@(_configuringPlacement?.Config ?? new JsonObject())"
                    ConfigChanged="SaveWidgetConfig"
                    OnClose="CloseConfigPanel" />
@@ -119,6 +123,8 @@ else
     [Parameter, EditorRequired] public string OwnerKey { get; set; } = default!;
     [Parameter] public bool EditMode { get; set; }
     [Parameter] public bool ReadOnly { get; set; }
+    /// <summary>Opt-in: show the per-widget placement debug label in edit mode. Off by default.</summary>
+    [Parameter] public bool ShowDebugInfo { get; set; }
 
     [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
 
@@ -126,6 +132,7 @@ else
     private DashboardDefinition? _activeDashboard;
     private IReadOnlyList<WidgetDescriptor> _availableWidgets = Array.Empty<WidgetDescriptor>();
     private bool _widgetEditMode;
+    private bool _actionsOpen;
     private DotNetObjectReference<object>? _dotNetRef;
     private readonly CancellationTokenSource _disposeCts = new();
     private readonly string _gridContainerId = "bdk-grid-" + Guid.NewGuid().ToString("N");
@@ -203,8 +210,12 @@ else
         _interactive = true;
 
         // Static SSR / prerender: render markup only, never initialize Gridstack.
-        // Only the interactive render owns JS.
-        if (firstRender && Interactive && !_gridInitialized && _activeDashboard is not null)
+        // Only the interactive render owns JS. NOT gated on `firstRender`:
+        // ResetGrid() (add/remove/import) destroys the grid and clears
+        // _gridInitialized precisely so the *next* render re-initializes it.
+        // `_gridInitialized` is the idempotency guard; gating on `firstRender`
+        // here would permanently strand the grid after the first ResetGrid.
+        if (Interactive && !_gridInitialized && _activeDashboard is not null)
         {
             _gridInitialized = true;
             // Reuse the cached _dotNetRef rather than creating a new (and never disposed)
@@ -212,6 +223,13 @@ else
             // the generic type; matching InitGrid's <object> signature lets us cache one ref.
             _dotNetRef ??= DotNetObjectReference.Create<object>(this);
             await JsInterop.InitGridAsync(_gridContainerId, interactive: true, _disposeCts.Token, _dotNetRef, EditMode);
+            // GridStack now owns layout: re-render so the static-fallback marker
+            // class (bound to _gridInitialized) is removed. Without this,
+            // OnAfterRenderAsync mutating state alone never re-renders, so the
+            // `bdk-grid-static` !important rules keep overriding GridStack.
+            // Guarded by `!_gridInitialized` above, so this runs once per init
+            // cycle (no render loop).
+            await InvokeAsync(StateHasChanged);
         }
     }
 
@@ -393,6 +411,9 @@ else
         for (int i = 0; i < ordered.Count; i++)
             ordered[i].Order = i;
         await SaveDashboard();
+        // Rebuild the grid like AddWidget does: otherwise GridStack keeps a
+        // stale model that still references the removed DOM node.
+        await ResetGrid();
     }
 
     private async Task OnWidgetConfigChanged(WidgetPlacement placement, JsonObject config)
@@ -458,8 +479,11 @@ else
         }
     }
 
+    private void ToggleActions() => _actionsOpen = !_actionsOpen;
+
     private async Task ExportDashboard()
     {
+        _actionsOpen = false;
         if (_activeDashboard is null) return;
 
         // Create a clean export object without internal state
@@ -487,6 +511,7 @@ else
 
     private async Task ImportDashboard()
     {
+        _actionsOpen = false;
         var json = await JsInterop.ReadFileAsTextAsync(_importFileInput, Interactive, _disposeCts.Token);
         if (string.IsNullOrWhiteSpace(json)) return;
         if (_activeDashboard is null || _collection is null) return;

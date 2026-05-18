@@ -1,0 +1,30 @@
+@inherits BaseWidgetComponent<MarkdownNoteWidget.NoteConfig>
+
+<header class="mb-2"><h6 class="mb-0">@(TypedConfig?.Title ?? "Note")</h6></header>
+@if (string.IsNullOrWhiteSpace(TypedConfig?.Body))
+{
+    <p class="text-muted small mb-0">Empty — use the gear icon to add text.</p>
+}
+else
+{
+    <div class="small" style="white-space: pre-wrap;">@TypedConfig!.Body</div>
+}
+
+@code {
+    public class NoteConfig
+    {
+        public string Title { get; set; } = "Note";
+        public string Body { get; set; } = "";
+    }
+
+    public static readonly WidgetDescriptor Descriptor = new()
+    {
+        Type = "Note",
+        Name = "Note",
+        Description = "A read-only text note configured via its config component",
+        Category = "Demo",
+        DefaultColumnSize = 4,
+        DefaultRowSpan = 2,
+        ConfigComponentType = typeof(MarkdownNoteConfigEditor)
+    };
+}

@@ -1,8 +1,10 @@
 # BlazorDashboardKit
 
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/Kukks/BlazorDashboardKit)
+
 A reusable, host-agnostic Blazor library for building customizable widget dashboards: a draggable/resizable grid of pluggable widgets, with the persistence and access policy supplied by you. It runs in Blazor Server, WebAssembly, and static SSR — the host component is render-mode-safe and touches no JS until it is interactive. The library only defines the dashboard surface and widget contract; it never assumes a database, a user model, or an application. Licensed MIT.
 
-**Status:** pre-release
+**Status:** pre-release · **[Live demo + usage →](https://kukks.github.io/BlazorDashboardKit/)**
 
 ## Install
 
@@ -10,7 +12,7 @@ A reusable, host-agnostic Blazor library for building customizable widget dashbo
 dotnet add package BlazorDashboardKit
 ```
 
-Not yet published to nuget.org (pre-release). Until it is, reference the locally built `BlazorDashboardKit.0.1.0.nupkg` (e.g. `dotnet pack src/BlazorDashboardKit -c Release -o ./artifacts` then `dotnet add package BlazorDashboardKit --source ./artifacts --version 0.1.0`) or add a project reference to `src/BlazorDashboardKit`.
+Pre-release. Also published to GitHub Packages for the `Kukks/BlazorDashboardKit` repo. Or add a project reference to `src/BlazorDashboardKit`.
 
 ## Wire up DI
 
@@ -33,20 +35,31 @@ builder.Services.AddBlazorDashboard(o => o.UseJsonFileStore("/var/data/dashboard
 
 ## Assets
 
-Add these to the `<head>` of your host page (`App.razor`):
+Nothing to add by hand. A Blazor JS initializer shipped in the package
+(`BlazorDashboardKit.lib.module.js`, auto-discovered for the RCL) injects the
+kit's stylesheet, the GridStack stylesheet, and the GridStack script into the
+host document before the app starts. The ESM interop (`dashboard-interop.js`)
+is imported by the library itself. Injection is idempotent: if your host
+already references an asset (e.g. you want to pin a version or control order),
+the initializer skips it.
+
+If you prefer fully manual control, you can still add them yourself — the
+initializer will then no-op:
 
 ```html
 <link rel="stylesheet" href="_content/BlazorDashboardKit/gridstack/gridstack.min.css" />
 <link rel="stylesheet" href="_content/BlazorDashboardKit/dashboard.css" />
-```
-
-And this script before `blazor.web.js` (or `blazor.server.js` / `blazor.webassembly.js`) in the body:
-
-```html
 <script src="_content/BlazorDashboardKit/gridstack/gridstack-all.js"></script>
 ```
 
-`dashboard-interop.js` is an ESM module that the library imports itself from `_content/BlazorDashboardKit/dashboard-interop.js` — do **not** add a script tag for it. The gridstack library above must be a global script because the interop module references `globalThis.GridStack`.
+### Theming
+
+The kit ships `--bdk-*` CSS custom properties with sensible standalone
+defaults; each also falls back to the matching BTCPay Server variable, so the
+kit adopts a BTCPay theme automatically. Override any token on an ancestor
+(zero-specificity `:where()` selectors mean your values win), e.g.
+`--bdk-surface`, `--bdk-text`, `--bdk-primary`, `--bdk-radius`,
+`--bdk-edit-header-height`.
 
 ## Use the host
 
@@ -81,15 +94,39 @@ Derive from `BaseWidgetComponent<TConfig>` and expose a `public static readonly 
         Description = "An example widget",
         Category = "Demo",
         DefaultColumnSize = 3,
-        ConfigSchema = new()
-        {
-            ["Title"] = new ConfigFieldSchema { Label = "Title", FieldType = ConfigFieldType.Text }
-        }
+        ConfigComponentType = typeof(MyConfigEditor)
     };
 }
 ```
 
-`TypedConfig` is the deserialized `TConfig` for the current placement. `ConfigSchema` keys must match `TConfig` property names; each entry drives one field in the built-in config panel (`FieldType` is `Text`, `Textarea`, `Number`, `Select`, `Checkbox`, or `Hidden`; `Select` uses `Options`, `Number` honours `Min`/`Max`, `Textarea` honours `Rows`). Set `RequiresConfiguration = true` to force the config panel open before a newly added widget is saved.
+`TypedConfig` is the deserialized `TConfig` for the current placement. Set
+`RequiresConfiguration = true` to force the config panel open before a newly
+added widget is saved.
+
+## Configure a widget
+
+A widget's settings UI is a real Blazor component — full control over inputs,
+layout, and validation. Point `WidgetDescriptor.ConfigComponentType` at a
+component deriving `WidgetConfigComponent<TConfig>`; the dashboard renders it in
+the config panel and owns Save/Cancel. Bind to the typed `Model` (an isolated
+working copy) and call `NotifyChangedAsync()` after a change:
+
+```razor
+@inherits BlazorDashboardKit.Components.WidgetConfigComponent<MyWidget.MyConfig>
+
+<input class="form-control" value="@Model.Title" @onchange="OnTitle" />
+
+@code {
+    async Task OnTitle(ChangeEventArgs e)
+    {
+        Model.Title = e.Value?.ToString() ?? "";
+        await NotifyChangedAsync();
+    }
+}
+```
+
+Leave `ConfigComponentType` null for a widget with no configuration (the panel
+then shows a "no configuration" message).
 
 ## Custom persistence
 
@@ -120,4 +157,6 @@ It is called both to filter the widget picker and to gate each rendered widget. 
 
 ## Render modes
 
-`DashboardHost` works in Blazor Server, WebAssembly, and static SSR. It is render-mode-safe: during static SSR and prerender it emits markup only and never invokes JavaScript; the grid is initialized lazily once the component reaches an interactive render. The in-memory store is per-process, so if you render the same dashboard under different interactivity locations (e.g. a server-prerendered page that becomes WebAssembly-interactive) back it with a shared store (`UseJsonFileStore` or a custom `IDashboardStore`) registered identically on every side.
+`DashboardHost` works in Blazor Server, WebAssembly, and static SSR. It is render-mode-safe: during static SSR and prerender it emits markup only and never invokes JavaScript; the grid is initialized lazily once the component reaches an interactive render. Until GridStack is live (static SSR, prerender, and the brief pre-interactive window) the kit applies a CSS fallback so widgets render in a readable stacked flow instead of collapsing — so a static-SSR dashboard degrades gracefully rather than breaking. For static SSR, pass `ReadOnly="true"` so non-functional edit affordances are not emitted. The in-memory store is per-process, so if you render the same dashboard under different interactivity locations (e.g. a server-prerendered page that becomes WebAssembly-interactive) back it with a shared store (`UseJsonFileStore` or a custom `IDashboardStore`) registered identically on every side.
+
+A standalone Blazor WebAssembly sample (the live demo above) lives in `samples/StandaloneWasm`; the Blazor Web App sample (Server + WASM + SSR pages) is in `samples/SampleApp`.

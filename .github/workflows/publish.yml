@@ -1,0 +1,83 @@
+name: Publish
+
+# Tag-based release detection: on every push to main (or manual dispatch) the
+# library's evaluated <Version> is read from the csproj. If no matching
+# `v<version>` git tag exists yet, the package is built, tested, pushed to
+# NuGet.org and GitHub Packages, and the commit is tagged. If the tag already
+# exists the job is a fast no-op, so re-runs / unrelated pushes never re-publish.
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write   # create and push the v<version> tag
+  packages: write   # push to GitHub Packages
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history + tags, required for the tag-existence check
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Read package version from csproj
+        id: ver
+        run: |
+          version=$(dotnet msbuild src/BlazorDashboardKit/BlazorDashboardKit.csproj \
+            -getProperty:Version -nologo | tail -n1 | tr -d '[:space:]')
+          if [ -z "$version" ]; then
+            echo "::error::Could not evaluate <Version> from BlazorDashboardKit.csproj"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+          echo "Resolved version: $version"
+
+      - name: Skip if this version is already tagged
+        id: check
+        run: |
+          if git rev-parse "refs/tags/${{ steps.ver.outputs.tag }}" >/dev/null 2>&1; then
+            echo "Tag ${{ steps.ver.outputs.tag }} already exists - nothing to publish."
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Test
+        if: steps.check.outputs.publish == 'true'
+        run: dotnet test tests/BlazorDashboardKit.Tests/BlazorDashboardKit.Tests.csproj --configuration Release
+
+      - name: Pack
+        if: steps.check.outputs.publish == 'true'
+        run: dotnet pack src/BlazorDashboardKit/BlazorDashboardKit.csproj --configuration Release -o ./artifacts
+
+      - name: Push to NuGet.org
+        if: steps.check.outputs.publish == 'true'
+        run: >
+          dotnet nuget push "./artifacts/*.nupkg"
+          --source https://api.nuget.org/v3/index.json
+          --api-key "${{ secrets.NUGET_KEY }}"
+          --skip-duplicate
+
+      - name: Push to GitHub Packages
+        if: steps.check.outputs.publish == 'true'
+        run: >
+          dotnet nuget push "./artifacts/*.nupkg"
+          --source https://nuget.pkg.github.com/Kukks/index.json
+          --api-key "${{ secrets.GITHUB_TOKEN }}"
+          --skip-duplicate
+
+      - name: Tag the release
+        if: steps.check.outputs.publish == 'true'
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "${{ steps.ver.outputs.tag }}" -m "Release ${{ steps.ver.outputs.tag }}"
+          git push origin "${{ steps.ver.outputs.tag }}"

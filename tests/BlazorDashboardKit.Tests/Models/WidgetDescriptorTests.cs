@@ -12,6 +12,7 @@ public class WidgetDescriptorTests
         Assert.Equal(6, d.DefaultColumnSize);
         Assert.Empty(d.RequiredPermissions);
         Assert.True(d.AllowMultiple);
-        Assert.NotNull(d.ConfigSchema);
+        Assert.Null(d.ConfigComponentType);
+        Assert.False(d.RequiresConfiguration);
     }
 }

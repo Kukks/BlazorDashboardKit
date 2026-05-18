@@ -1,6 +1,32 @@
-/* ── Gridstack overrides ── */
+/* ============================================================================
+   BlazorDashboardKit — themeable styles
 
-/* Ensure grid-stack items have proper height */
+   The kit ships its own `--bdk-*` design tokens with sensible standalone
+   defaults, so it looks good with no host theme. Each token also falls back to
+   the matching BTCPay Server variable when present, so the kit reuses a BTCPay
+   theme automatically. A consumer themes the kit by setting `--bdk-*` on any
+   ancestor (zero-specificity :where() means their values always win).
+   ============================================================================ */
+
+:where(.grid-stack, .dashboard-header, .widget-config-panel, .widget-config-backdrop) {
+    --bdk-surface:        var(--btcpay-bg-tile, #ffffff);
+    --bdk-surface-muted:  var(--btcpay-body-bg, #f8f9fa);
+    --bdk-text:           var(--btcpay-body-text, #212529);
+    --bdk-text-muted:     var(--btcpay-body-text-muted, #6c757d);
+    --bdk-border:         var(--btcpay-body-border-light, rgba(0, 0, 0, 0.125));
+    --bdk-primary:        var(--btcpay-primary, #0d6efd);
+    --bdk-danger:         var(--btcpay-danger, #dc3545);
+    --bdk-radius:         var(--btcpay-border-radius, 0.5rem);
+    --bdk-radius-sm:      var(--btcpay-border-radius-sm, 0.25rem);
+    --bdk-shadow:         var(--btcpay-box-shadow, 0 1px 3px rgba(0, 0, 0, 0.08));
+    --bdk-font-mono:      var(--btcpay-font-family-monospace, ui-monospace, SFMono-Regular, Menlo, monospace);
+    --bdk-space:          0.75rem;
+    --bdk-grid-gap:       0.75rem;
+    --bdk-edit-header-height: 2rem;
+    --bdk-fallback-item-min-height: 9rem;
+}
+
+/* ── Gridstack base ── */
 .grid-stack {
     min-height: 120px;
 }
@@ -10,6 +36,8 @@
     flex-direction: column;
 }
 
+/* The visible widget card. Self-contained chrome so a bare widget body still
+   reads as a card without any host theme. */
 .grid-stack-item-content > .widget {
     height: 100%;
     display: flex;
@@ -17,8 +45,38 @@
     overflow-y: auto;
     overflow-x: hidden;
     position: relative;
+    background: var(--bdk-surface);
+    color: var(--bdk-text);
+    border: 1px solid var(--bdk-border);
+    border-radius: var(--bdk-radius);
+    box-shadow: var(--bdk-shadow);
+    padding: var(--bdk-space);
     scrollbar-width: thin;
-    scrollbar-color: rgba(255,255,255,0.15) transparent;
+    scrollbar-color: var(--bdk-border) transparent;
+}
+
+/* ── Static fallback layout ──
+   When GridStack's JS has not positioned items (static SSR, prerender, and the
+   pre-interactive flash on Server/WASM), gridstack.min.css leaves items
+   absolutely positioned with no size → 0×0 collapse. DashboardHost marks the
+   container `.bdk-grid-static` until the JS grid is live; force a readable
+   stacked flow until then. GridStack's inline styles take over once live. */
+.grid-stack.bdk-grid-static {
+    height: auto !important;
+    display: flex;
+    flex-direction: column;
+    gap: var(--bdk-grid-gap);
+}
+
+.grid-stack.bdk-grid-static > .grid-stack-item {
+    position: relative !important;
+    inset: auto !important;
+    transform: none !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: var(--bdk-fallback-item-min-height);
+    left: auto !important;
+    top: auto !important;
 }
 
 /* Constrain wallet balance chart height — Chartist ct-major-tenth uses
@@ -36,8 +94,8 @@
     justify-content: space-between;
     align-items: center;
     padding: 0.125rem 0.5rem;
-    background: linear-gradient(to bottom, var(--btcpay-body-bg, rgba(0,0,0,0.6)) 60%, transparent);
-    border-radius: var(--btcpay-border-radius, 0.375rem) var(--btcpay-border-radius, 0.375rem) 0 0;
+    background: linear-gradient(to bottom, var(--bdk-surface-muted) 60%, transparent);
+    border-radius: var(--bdk-radius) var(--bdk-radius) 0 0;
     user-select: none;
     position: absolute;
     top: 0;
@@ -48,13 +106,23 @@
 
 .dashboard-edit .widget-edit-header {
     display: flex;
+    min-height: var(--bdk-edit-header-height);
+}
+
+/* The edit header is position:absolute and overlays the top of the widget.
+   Without reserving space for it, it sits ON TOP of the widget's own content
+   and controls — a widget that puts a button top-right (e.g. an "Edit" link)
+   has it covered by the kit's ✕ Remove button, so clicking the widget's own
+   control actually triggers Remove. Reserve the header's height in edit mode. */
+.dashboard-edit .grid-stack-item-content > .widget {
+    padding-top: calc(var(--bdk-edit-header-height) + var(--bdk-space));
 }
 
 .widget-drag-handle {
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    color: var(--btcpay-body-text-muted);
+    color: var(--bdk-text-muted);
     cursor: grab;
     flex: 1;
     padding: 0;
@@ -115,20 +183,20 @@
     padding: 0;
     border: none;
     background: none;
-    color: var(--btcpay-body-text-muted);
+    color: var(--bdk-text-muted);
     cursor: pointer;
-    border-radius: var(--btcpay-border-radius-sm, 0.25rem);
+    border-radius: var(--bdk-radius-sm);
     transition: color 0.15s, background 0.15s;
 }
 
 .widget-control-btn:hover {
-    color: var(--btcpay-body-text);
-    background: rgba(255, 255, 255, 0.08);
+    color: var(--bdk-text);
+    background: rgba(127, 127, 127, 0.12);
 }
 
 .widget-control-btn--danger:hover {
-    color: var(--btcpay-danger, #c94a47);
-    background: rgba(201, 74, 71, 0.1);
+    color: var(--bdk-danger);
+    background: rgba(220, 53, 69, 0.1);
 }
 
 .widget-control-btn .icon {
@@ -137,13 +205,10 @@
 }
 
 /* ── Gridstack resize handle styling ── */
-
-/* Hide resize handles when not in edit mode */
 .grid-stack:not(.dashboard-edit) > .grid-stack-item > .ui-resizable-handle {
     display: none !important;
 }
 
-/* Style the gridstack resize handles to match BTCPay design */
 .dashboard-edit .grid-stack-item > .ui-resizable-handle {
     opacity: 0;
     transition: opacity 0.15s;
@@ -153,7 +218,6 @@
     opacity: 0.6;
 }
 
-/* Hide charts during resize to prevent SVG artifacts */
 .ui-resizable-resizing .ct-chart {
     visibility: hidden;
 }
@@ -169,7 +233,7 @@
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    color: var(--btcpay-body-text-muted);
+    color: var(--bdk-text-muted);
     padding: 0.5rem 1rem 0.25rem;
 }
 
@@ -185,32 +249,32 @@
     align-items: center;
     justify-content: center;
     text-align: center;
-    padding: var(--btcpay-space-l, 1.5rem);
-    color: var(--btcpay-body-text-muted);
+    padding: 1.5rem;
+    color: var(--bdk-text-muted);
     min-height: 80px;
 }
 
 .widget-unavailable-overlay h6 {
-    color: var(--btcpay-body-text-muted);
+    color: var(--bdk-text-muted);
 }
 
 /* ── Edit mode visual cues ── */
 .dashboard-edit > .grid-stack-item > .grid-stack-item-content {
-    outline: 1px dashed rgba(255, 255, 255, 0.1);
+    outline: 1px dashed var(--bdk-border);
     outline-offset: -1px;
-    border-radius: var(--btcpay-border-radius);
+    border-radius: var(--bdk-radius);
     transition: outline-color 0.15s;
 }
 
 .dashboard-edit > .grid-stack-item:hover > .grid-stack-item-content {
-    outline-color: rgba(255, 255, 255, 0.2);
+    outline-color: var(--bdk-primary);
 }
 
 /* ── Gridstack placeholder styling ── */
 .grid-stack > .grid-stack-placeholder > .placeholder-content {
-    background-color: rgba(81, 177, 62, 0.1) !important;
-    border: 2px dashed var(--btcpay-primary, #51b13e);
-    border-radius: var(--btcpay-border-radius);
+    background-color: rgba(13, 110, 253, 0.08) !important;
+    border: 2px dashed var(--bdk-primary);
+    border-radius: var(--bdk-radius);
 }
 
 /* ── Widget config panel (side drawer) ── */
@@ -230,8 +294,9 @@
     width: 380px;
     max-width: 90vw;
     height: 100vh;
-    background: var(--btcpay-body-bg, #1e1e2f);
-    border-left: 1px solid var(--btcpay-body-border-light, rgba(255,255,255,0.08));
+    background: var(--bdk-surface);
+    color: var(--bdk-text);
+    border-left: 1px solid var(--bdk-border);
     z-index: 1050;
     display: flex;
     flex-direction: column;
@@ -244,7 +309,7 @@
     justify-content: space-between;
     align-items: center;
     padding: 1rem 1.25rem;
-    border-bottom: 1px solid var(--btcpay-body-border-light, rgba(255,255,255,0.08));
+    border-bottom: 1px solid var(--bdk-border);
     flex-shrink: 0;
 }
 
@@ -259,30 +324,30 @@
     justify-content: flex-end;
     gap: 0.5rem;
     padding: 1rem 1.25rem;
-    border-top: 1px solid var(--btcpay-body-border-light, rgba(255,255,255,0.08));
+    border-top: 1px solid var(--bdk-border);
     flex-shrink: 0;
 }
 
 /* Highlight the widget being configured */
 .grid-stack-item.widget-configuring > .grid-stack-item-content {
-    outline: 2px solid var(--btcpay-primary, #51b13e) !important;
+    outline: 2px solid var(--bdk-primary) !important;
     outline-offset: -1px;
     z-index: 1045;
     position: relative;
 }
 
-/* Debug label matching html[data-devenv]:before style */
+/* Optional debug label (opt-in via DashboardHost ShowDebugInfo). */
 .widget-debug-label {
     position: absolute;
     right: 0;
     bottom: 0;
-    background: var(--btcpay-bg-tile);
-    color: var(--btcpay-secondary-text);
+    background: var(--bdk-surface-muted);
+    color: var(--bdk-text-muted);
     opacity: .7;
     padding: 4px 5px 3px 7px;
-    font-size: var(--btcpay-font-size-xs);
-    font-family: var(--btcpay-font-family-monospace);
-    border-top-left-radius: var(--btcpay-border-radius);
+    font-size: 0.75rem;
+    font-family: var(--bdk-font-mono);
+    border-top-left-radius: var(--bdk-radius);
     z-index: 5;
     pointer-events: none;
 }

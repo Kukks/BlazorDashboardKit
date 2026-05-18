@@ -6,6 +6,26 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <!-- Package metadata. The publish workflow reads the evaluated Version
+         property (via dotnet msbuild) to decide whether a new package needs
+         publishing: it publishes + tags only when no matching git tag exists. -->
+    <PackageId>BlazorDashboardKit</PackageId>
+    <Version>0.1.0</Version>
+    <Authors>Andrew Camilleri</Authors>
+    <Description>A reusable, host-agnostic Blazor library for building customizable widget dashboards: a draggable/resizable grid of pluggable widgets, with persistence and access policy supplied by you. Runs in Blazor Server, WebAssembly, and static SSR.</Description>
+    <PackageTags>blazor;dashboard;widgets;gridstack;razor-class-library</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/Kukks/BlazorDashboardKit</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/Kukks/BlazorDashboardKit.git</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="../../README.md" Pack="true" PackagePath="/" />
+  </ItemGroup>
+
 
   <ItemGroup>
     <SupportedPlatform Include="browser" />

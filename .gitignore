@@ -480,3 +480,7 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+
+# Agent/browser session artifacts and ad-hoc debug screenshots at repo root
+.playwright-mcp/
+/*.png

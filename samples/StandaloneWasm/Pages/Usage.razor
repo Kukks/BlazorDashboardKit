@@ -1,0 +1,72 @@
+@page "/usage"
+
+<PageTitle>BlazorDashboardKit — usage</PageTitle>
+
+<h1>Usage</h1>
+
+<section>
+    <h2>1. Install &amp; register</h2>
+    <pre><code>dotnet add package BlazorDashboardKit</code></pre>
+    <p>In <code>Program.cs</code> (every render target — server <em>and</em> <code>.Client</code> for a Web App):</p>
+    <pre><code>builder.Services.AddBlazorDashboard()
+    .AddDashboardWidget&lt;CounterWidget&gt;(CounterWidget.Descriptor)
+    .AddDashboardWidget&lt;MarkdownNoteWidget&gt;(MarkdownNoteWidget.Descriptor);</code></pre>
+    <p>
+        No manual asset tags: the kit's Blazor JS initializer injects its CSS and
+        GridStack automatically. Persist with
+        <code>AddBlazorDashboard(o =&gt; o.UseJsonFileStore("/data"))</code> or a
+        custom <code>IDashboardStore</code>.
+    </p>
+</section>
+
+<section>
+    <h2>2. Drop in the host</h2>
+    <pre><code>@@using BlazorDashboardKit.Components
+
+&lt;DashboardHost OwnerKey="@@userId" EditMode="true" /&gt;</code></pre>
+    <p>
+        <code>ReadOnly="true"</code> hides edit affordances (use it for static SSR).
+        The host is render-mode-safe: it degrades to a readable stacked layout
+        until JavaScript is available.
+    </p>
+</section>
+
+<section>
+    <h2>3. Write a widget</h2>
+    <p>Derive <code>BaseWidgetComponent&lt;TConfig&gt;</code> and expose a static <code>Descriptor</code>:</p>
+    <pre><code>@@inherits BaseWidgetComponent&lt;MyWidget.MyConfig&gt;
+
+&lt;div&gt;@@(TypedConfig?.Title)&lt;/div&gt;
+
+@@code {
+    public class MyConfig { public string Title { get; set; } = "Hi"; }
+
+    public static readonly WidgetDescriptor Descriptor = new() {
+        Type = "My", Name = "My Widget", Category = "Demo",
+        ConfigComponentType = typeof(MyConfigEditor)
+    };
+}</code></pre>
+</section>
+
+<section>
+    <h2>4. Give it a config component</h2>
+    <p>
+        A widget's settings UI is a real Blazor component deriving
+        <code>WidgetConfigComponent&lt;TConfig&gt;</code> — full control, any inputs,
+        validation, anything. Bind to <code>Model</code> and call
+        <code>NotifyChangedAsync()</code>:
+    </p>
+    <pre><code>@@inherits WidgetConfigComponent&lt;MyWidget.MyConfig&gt;
+
+&lt;input value="@@Model.Title" @@onchange="OnTitle" /&gt;
+
+@@code {
+    async Task OnTitle(ChangeEventArgs e) {
+        Model.Title = e.Value?.ToString() ?? "";
+        await NotifyChangedAsync();
+    }
+}</code></pre>
+    <p>The panel owns Save/Cancel — <code>Model</code> is an isolated working copy.</p>
+</section>
+
+<p><a href="">← Back to the live demo</a></p>
