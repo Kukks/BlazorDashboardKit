@@ -199,6 +199,35 @@ public class DashboardHostTests : TestContext
     }
 
     [Fact]
+    public void OnDashboardChanged_Fires_After_A_Persisted_Change()
+    {
+        var js = new RecordingJsRuntime();
+        var descriptor = new WidgetDescriptor
+        {
+            Type = "Test", Name = "Test Widget", Category = "Demo",
+            ComponentType = typeof(TestWidget)
+        };
+        Services.AddSingleton<IDashboardStore>(new InMemoryDashboardStore());
+        Services.AddSingleton<IWidgetAccessControl, AllowAllWidgetAccessControl>();
+        Services.AddSingleton(new WidgetRegistry(new[] { descriptor }));
+        Services.AddScoped<DashboardService>();
+        Services.AddScoped(_ => new DashboardJsInterop(js));
+
+        var changes = 0;
+        var cut = RenderComponent<BlazorDashboardKit.Components.DashboardHost>(p => p
+            .Add(x => x.OwnerKey, "owner-1")
+            .Add(x => x.EditMode, true)
+            .Add(x => x.OnDashboardChanged, () => changes++));
+
+        cut.WaitForState(() => js.InitGridCalls == 1, TimeSpan.FromSeconds(5));
+        cut.Find("button.btn-outline-primary.dropdown-toggle").Click();
+        cut.Find("button.dropdown-item.small").Click();
+        cut.WaitForState(() => changes > 0, TimeSpan.FromSeconds(5));
+
+        Assert.True(changes > 0);
+    }
+
+    [Fact]
     public void Duplicating_A_Widget_Adds_An_Independent_Copy()
     {
         var js = new RecordingJsRuntime();

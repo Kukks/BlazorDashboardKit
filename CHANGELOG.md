@@ -11,6 +11,8 @@ follow [Semantic Versioning](https://semver.org/).
   moved or resized; toggle from its edit-mode header. Persisted with the layout.
 - **Duplicate widget** action in the edit-mode header: clones a widget with a
   deep-copied (independent) config.
+- `DashboardHost.OnDashboardChanged` event raised after every persisted change
+  (external sync / analytics / autosave hooks).
 - **Component-based widget configuration**: a widget points
   `WidgetDescriptor.ConfigComponentType` at a component deriving
   `WidgetConfigComponent<TConfig>`, replacing the schema dictionary.

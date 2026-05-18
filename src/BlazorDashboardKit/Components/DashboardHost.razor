@@ -136,6 +136,8 @@ else
     [Parameter] public bool ShowDebugInfo { get; set; }
     /// <summary>Tune the grid (columns, cell height, margin, responsiveness). Defaults match the kit's built-in behaviour.</summary>
     [Parameter] public DashboardGridOptions? GridOptions { get; set; }
+    /// <summary>Raised after the dashboard is persisted (any add/remove/move/resize/config/rename/import). For external sync, analytics, etc.</summary>
+    [Parameter] public EventCallback OnDashboardChanged { get; set; }
 
     [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
 
@@ -620,6 +622,8 @@ else
         if (string.IsNullOrEmpty(OwnerKey) || _collection is null || _activeDashboard is null)
             return;
         await DashboardService.SaveAsync(OwnerKey, _collection, _disposeCts.Token);
+        if (OnDashboardChanged.HasDelegate)
+            await OnDashboardChanged.InvokeAsync();
     }
 
     public async ValueTask DisposeAsync()

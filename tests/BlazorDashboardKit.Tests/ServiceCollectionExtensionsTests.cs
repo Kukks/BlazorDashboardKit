@@ -36,4 +36,47 @@ public class ServiceCollectionExtensionsTests
         Assert.IsType<BlazorDashboardKit.Stores.JsonFileDashboardStore>(sp.GetRequiredService<IDashboardStore>());
         if (Directory.Exists(dir)) Directory.Delete(dir, true);
     }
+
+    private sealed class CustomStore : IDashboardStore
+    {
+        public Task<DashboardCollection?> LoadAsync(string ownerKey, CancellationToken ct = default)
+            => Task.FromResult<DashboardCollection?>(null);
+        public Task SaveAsync(string ownerKey, DashboardCollection collection, CancellationToken ct = default)
+            => Task.CompletedTask;
+    }
+
+    private sealed class DenyAll : IWidgetAccessControl
+    {
+        public Task<bool> IsAllowedAsync(WidgetDescriptor d, System.Security.Claims.ClaimsPrincipal? u, CancellationToken ct = default)
+            => Task.FromResult(false);
+    }
+
+    [Fact]
+    public void Consumer_Registered_Store_And_AccessControl_Win_Over_Defaults()
+    {
+        // Documented contract: register before AddBlazorDashboard() and TryAdd
+        // means your implementation is used, not the kit's defaults.
+        var sp = new ServiceCollection()
+            .AddSingleton<IDashboardStore, CustomStore>()
+            .AddSingleton<IWidgetAccessControl, DenyAll>()
+            .AddBlazorDashboard()
+            .BuildServiceProvider();
+
+        Assert.IsType<CustomStore>(sp.GetRequiredService<IDashboardStore>());
+        Assert.IsType<DenyAll>(sp.GetRequiredService<IWidgetAccessControl>());
+    }
+
+    [Fact]
+    public void AddDashboardWidget_Sets_ComponentType_And_Feeds_The_Registry()
+    {
+        var sp = new ServiceCollection()
+            .AddBlazorDashboard()
+            .AddDashboardWidget<DummyWidget>(new WidgetDescriptor { Type = "Dummy", Name = "Dummy" })
+            .BuildServiceProvider();
+
+        var registry = sp.GetRequiredService<WidgetRegistry>();
+        var d = registry.GetDescriptor("Dummy");
+        Assert.NotNull(d);
+        Assert.Equal(typeof(DummyWidget), d!.ComponentType);
+    }
 }
