@@ -630,6 +630,7 @@ else
                 w.Offset,
                 w.Row,
                 w.Order,
+                w.Locked,
                 w.Config
             })
         };
@@ -679,6 +680,7 @@ else
                         Offset = wo["Offset"]?.GetValue<int?>(),
                         Row = wo["Row"]?.GetValue<int?>(),
                         Order = order++,
+                        Locked = wo["Locked"]?.GetValue<bool>() ?? false,
                         Config = wo["Config"]?.DeepClone() as JsonObject
                     });
                 }

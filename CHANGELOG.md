@@ -42,6 +42,7 @@ follow [Semantic Versioning](https://semver.org/).
 - `publish.yml` (tag-based release to NuGet + GitHub Packages) and `pages.yml`.
 
 ### Fixed
+- Export/Import now round-trips per-widget `Locked` state (was dropped).
 - `JsonFileDashboardStore` no longer crashes the dashboard on a corrupt/partial
   persisted file: it quarantines the bad file (`.corrupt-<ts>`) and recovers.
 - Widget picker / Actions menus no longer require Bootstrap's JS (Blazor-driven).

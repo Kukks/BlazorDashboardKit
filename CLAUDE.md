@@ -17,7 +17,7 @@ Run after any change to the dashboard host, widgets, interop, or CSS. Exercise o
 - [ ] No kit asset tags in the host page, yet `GridStack` is defined and `dashboard.css`/`gridstack.min.css` are present (JS initializer auto-injected them).
 - [ ] **Add Widget** dropdown opens with NO Bootstrap JS loaded; widgets grouped by category; closes on select.
 - [ ] Adding a widget renders it with real size/position (GridStack instance present; `bdk-grid-static` cleared; item rect non-zero, a grid cell not full-width).
-- [ ] **Actions** dropdown opens; Export downloads JSON; Import loads a JSON file; menu closes after each.
+- [ ] **Actions** dropdown opens; Export downloads JSON; Import loads a JSON file (lock state preserved round-trip); menu closes after each.
 - [ ] Drag a widget (edit mode) and resize it; positions/sizes persist after Done + reload.
 - [ ] Remove (✕) needs a 2-step confirm (✓/↩); confirming deletes the widget and the grid re-lays-out. Cancel aborts.
 - [ ] Delete dashboard needs a 2-step confirm (Confirm delete / Cancel).
