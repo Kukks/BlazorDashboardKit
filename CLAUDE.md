@@ -19,7 +19,8 @@ Run after any change to the dashboard host, widgets, interop, or CSS. Exercise o
 - [ ] Adding a widget renders it with real size/position (GridStack instance present; `bdk-grid-static` cleared; item rect non-zero, a grid cell not full-width).
 - [ ] **Actions** dropdown opens; Export downloads JSON; Import loads a JSON file; menu closes after each.
 - [ ] Drag a widget (edit mode) and resize it; positions/sizes persist after Done + reload.
-- [ ] Remove (✕) deletes the widget and the grid re-lays-out the remaining widgets.
+- [ ] Remove (✕) needs a 2-step confirm (✓/↩); confirming deletes the widget and the grid re-lays-out. Cancel aborts.
+- [ ] Delete dashboard needs a 2-step confirm (Confirm delete / Cancel).
 - [ ] A widget's own controls (e.g. Notes "Edit") are clickable — NOT overlapped/hijacked by the edit header's ✕.
 - [ ] Configure (gear) opens the panel rendering the widget's **config component**; editing + Save persists and reflects in the widget; original config untouched on Cancel. Widget with null `ConfigComponentType` shows "no configuration" + no Save.
 - [ ] A widget with `RequiresConfiguration` opens its config before the first save.

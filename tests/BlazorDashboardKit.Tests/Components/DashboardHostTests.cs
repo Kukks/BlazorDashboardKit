@@ -267,8 +267,9 @@ public class DashboardHostTests : TestContext
             () => cut.Find("input[aria-label='Dashboard name']").GetAttribute("value") == firstName,
             TimeSpan.FromSeconds(5));
 
-        // Delete the active dashboard -> back to one, no selector.
+        // Delete the active dashboard (2-step confirm) -> back to one, no selector.
         cut.Find("button[title='Delete this dashboard']").Click();
+        cut.Find("button[title='Confirm delete dashboard']").Click();
         cut.WaitForState(() => cut.FindAll("select[aria-label='Select dashboard']").Count == 0,
             TimeSpan.FromSeconds(5));
         var afterDelete = await store.LoadAsync("owner-1");
@@ -518,7 +519,8 @@ public class DashboardHostTests : TestContext
         cut.Find("button.dropdown-item.small").Click();                  // add widget
         cut.WaitForState(() => js.InitGridCalls == 2, TimeSpan.FromSeconds(5));
 
-        cut.Find("button.widget-control-btn--danger").Click();           // remove widget
+        cut.Find("button[title='Remove widget']").Click();               // 1st: arm confirm
+        cut.Find("button[title='Confirm remove']").Click();              // 2nd: actually remove
         cut.WaitForState(() => js.InitGridCalls >= 3, TimeSpan.FromSeconds(5));
         Assert.Equal(3, js.InitGridCalls);
     }

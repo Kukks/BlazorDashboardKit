@@ -20,6 +20,8 @@ follow [Semantic Versioning](https://semver.org/).
 - Dropdowns (widget picker, Actions) now close on click-outside via a
   pure-Blazor transparent backdrop — still no Bootstrap JS.
 - `aria-label`s on the icon-only widget control buttons.
+- Destructive actions (remove widget, delete dashboard) now require a two-step
+  inline confirm — guards against the accidental-loss class of mistake.
 - **Component-based widget configuration**: a widget points
   `WidgetDescriptor.ConfigComponentType` at a component deriving
   `WidgetConfigComponent<TConfig>`, replacing the schema dictionary.

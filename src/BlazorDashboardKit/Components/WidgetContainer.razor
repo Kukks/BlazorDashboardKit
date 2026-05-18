@@ -25,11 +25,27 @@
                         @onclick="OnDuplicate">
                     <span aria-hidden="true">⧉</span>
                 </button>
-                <button class="widget-control-btn widget-control-btn--danger" type="button"
-                        title="Remove widget" aria-label="Remove widget"
-                        @onclick="OnRemove">
-                    <span class="icon icon-cross" aria-hidden="true"></span>
-                </button>
+                @if (_confirmRemove)
+                {
+                    <button class="widget-control-btn widget-control-btn--danger" type="button"
+                            title="Confirm remove" aria-label="Confirm remove widget"
+                            @onclick="OnRemove">
+                        <span aria-hidden="true">✓</span>
+                    </button>
+                    <button class="widget-control-btn" type="button"
+                            title="Cancel remove" aria-label="Cancel remove"
+                            @onclick="() => _confirmRemove = false">
+                        <span aria-hidden="true">↩</span>
+                    </button>
+                }
+                else
+                {
+                    <button class="widget-control-btn widget-control-btn--danger" type="button"
+                            title="Remove widget" aria-label="Remove widget"
+                            @onclick="() => _confirmRemove = true">
+                        <span class="icon icon-cross" aria-hidden="true"></span>
+                    </button>
+                }
             </div>
         </div>
     }
@@ -75,6 +91,7 @@
     [Parameter] public EventCallback OnDuplicate { get; set; }
 
     private ErrorBoundary? _errorBoundary;
+    private bool _confirmRemove;
 
     // Cached parameters to avoid rebuilding on every render
     private Dictionary<string, object>? _cachedParameters;
