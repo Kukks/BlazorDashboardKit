@@ -228,6 +228,54 @@ public class DashboardHostTests : TestContext
     }
 
     [Fact]
+    public async Task Multiple_Dashboards_Can_Be_Added_Switched_And_Deleted()
+    {
+        var js = new RecordingJsRuntime();
+        var store = new InMemoryDashboardStore();
+        Services.AddSingleton<IDashboardStore>(store);
+        Services.AddSingleton<IWidgetAccessControl, AllowAllWidgetAccessControl>();
+        Services.AddSingleton(new WidgetRegistry(Array.Empty<WidgetDescriptor>()));
+        Services.AddScoped<DashboardService>();
+        Services.AddScoped(_ => new DashboardJsInterop(js));
+
+        var cut = RenderComponent<BlazorDashboardKit.Components.DashboardHost>(p => p
+            .Add(x => x.OwnerKey, "owner-1")
+            .Add(x => x.EditMode, true));
+
+        cut.WaitForState(() => js.InitGridCalls == 1, TimeSpan.FromSeconds(5));
+
+        // One default dashboard: no selector yet, but the add button exists.
+        Assert.Empty(cut.FindAll("select[aria-label='Select dashboard']"));
+        cut.Find("button[title='New dashboard']").Click();
+
+        // Two dashboards now: a selector with 2 options, the new one active.
+        cut.WaitForState(
+            () => cut.FindAll("select[aria-label='Select dashboard'] option").Count == 2,
+            TimeSpan.FromSeconds(5));
+        var stored = await store.LoadAsync("owner-1");
+        Assert.Equal(2, stored!.Dashboards.Count);
+        Assert.Equal(stored.Dashboards[1].Id, stored.ActiveDashboardId);
+        var firstId = stored.Dashboards[0].Id;
+        var firstName = stored.Dashboards[0].Name;
+
+        // Newly-added dashboard is active (its name shows in the rename box).
+        Assert.Equal("Dashboard 2", cut.Find("input[aria-label='Dashboard name']").GetAttribute("value"));
+
+        // Switch back to the first dashboard (UI reflects the active one).
+        cut.Find("select[aria-label='Select dashboard']").Change(firstId);
+        cut.WaitForState(
+            () => cut.Find("input[aria-label='Dashboard name']").GetAttribute("value") == firstName,
+            TimeSpan.FromSeconds(5));
+
+        // Delete the active dashboard -> back to one, no selector.
+        cut.Find("button[title='Delete this dashboard']").Click();
+        cut.WaitForState(() => cut.FindAll("select[aria-label='Select dashboard']").Count == 0,
+            TimeSpan.FromSeconds(5));
+        var afterDelete = await store.LoadAsync("owner-1");
+        Assert.Single(afterDelete!.Dashboards);
+    }
+
+    [Fact]
     public void OnDashboardChanged_Fires_After_A_Persisted_Change()
     {
         var js = new RecordingJsRuntime();

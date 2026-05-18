@@ -7,6 +7,10 @@ follow [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **Multiple dashboards** per owner: switch via a header selector, add and
+  delete dashboards (the last one is protected). The data model already
+  supported a collection; this exposes it in the UI and persists the active
+  selection.
 - Per-widget **lock** (`WidgetPlacement.Locked`): pin a widget so it can't be
   moved or resized; toggle from its edit-mode header. Persisted with the layout.
 - **Duplicate widget** action in the edit-mode header: clones a widget with a

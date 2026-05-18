@@ -26,6 +26,7 @@ Run after any change to the dashboard host, widgets, interop, or CSS. Exercise o
 - [ ] Debug label hidden by default; appears only with `ShowDebugInfo="true"`.
 - [ ] Edit ⇄ Done toggles edit affordances; Done persists; reload shows the persisted dashboard.
 - [ ] Rename the dashboard title; it persists across reload.
+- [ ] Multiple dashboards: "+ Dashboard" adds one; selector switches (grid rebuilds); Delete removes (last one protected); active selection persists.
 - [ ] `/ssr` renders read-only (no edit affordances) with a usable CSS-fallback layout — no 0×0 collapse, no crash; `AlwaysInteractive` widgets render read-only there too.
 - [ ] StandaloneWasm: an interactive widget (Counter) increments and the value survives reload (config-persisted).
 - [ ] Lock toggle (🔒/🔓 in the edit header) pins a widget: it can't be dragged/resized; state persists across reload.

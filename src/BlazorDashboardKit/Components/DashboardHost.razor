@@ -16,15 +16,33 @@
 else
 {
 <div class="dashboard-header d-flex justify-content-between align-items-center mb-4">
-    <div class="d-flex align-items-center gap-3">
+    <div class="d-flex align-items-center gap-2">
+        @if (_collection is not null && _collection.Dashboards.Count > 1)
+        {
+            <select class="form-select form-select-sm" style="width: auto;"
+                    aria-label="Select dashboard"
+                    value="@_activeDashboard.Id" @onchange="SwitchDashboard">
+                @foreach (var d in _collection.Dashboards)
+                {
+                    <option value="@d.Id" selected="@(d.Id == _activeDashboard.Id)">@d.Name</option>
+                }
+            </select>
+        }
         @if (EditMode)
         {
-            <input type="text" class="form-control form-control-sm fw-bold fs-5"
-                   style="width: auto; min-width: 150px; max-width: 300px;"
-                   value="@_activeDashboard.Name"
+            <input type="text" class="form-control form-control-sm fw-bold"
+                   style="width: auto; min-width: 140px; max-width: 280px;"
+                   value="@_activeDashboard.Name" aria-label="Dashboard name"
                    @onchange="OnDashboardNameChanged" />
+            <button class="btn btn-outline-secondary btn-sm" type="button"
+                    title="New dashboard" disabled="@_widgetEditMode" @onclick="AddDashboard">+ Dashboard</button>
+            @if (_collection is not null && _collection.Dashboards.Count > 1)
+            {
+                <button class="btn btn-outline-danger btn-sm" type="button"
+                        title="Delete this dashboard" disabled="@_widgetEditMode" @onclick="DeleteActiveDashboard">Delete</button>
+            }
         }
-        else
+        else if (_collection is null || _collection.Dashboards.Count <= 1)
         {
             <h3 class="mb-0">@(_activeDashboard?.Name ?? "Dashboard")</h3>
         }
@@ -525,6 +543,55 @@ else
             _activeDashboard.Name = newName;
             await SaveDashboard();
         }
+    }
+
+    // Clears transient per-dashboard UI state so it can't leak across a switch.
+    private void ResetTransientState()
+    {
+        _pendingConfiguration = false;
+        _configuringPlacement = null;
+        _configuringDescriptor = null;
+        _widgetEditMode = false;
+        _actionsOpen = false;
+    }
+
+    private async Task SwitchDashboard(ChangeEventArgs e)
+    {
+        if (_collection is null) return;
+        var id = e.Value?.ToString();
+        var target = _collection.Dashboards.FirstOrDefault(d => d.Id == id);
+        if (target is null || ReferenceEquals(target, _activeDashboard)) return;
+
+        _activeDashboard = target;
+        _collection.ActiveDashboardId = target.Id;
+        ResetTransientState();
+        await SaveDashboard();
+        await ResetGrid();
+    }
+
+    private async Task AddDashboard()
+    {
+        if (_collection is null) return;
+        var dashboard = new DashboardDefinition { Name = $"Dashboard {_collection.Dashboards.Count + 1}" };
+        _collection.Dashboards.Add(dashboard);
+        _activeDashboard = dashboard;
+        _collection.ActiveDashboardId = dashboard.Id;
+        ResetTransientState();
+        await SaveDashboard();
+        await ResetGrid();
+    }
+
+    private async Task DeleteActiveDashboard()
+    {
+        if (_collection is null || _activeDashboard is null || _collection.Dashboards.Count <= 1)
+            return; // never delete the last dashboard
+
+        _collection.Dashboards.Remove(_activeDashboard);
+        _activeDashboard = _collection.Dashboards[0];
+        _collection.ActiveDashboardId = _activeDashboard.Id;
+        ResetTransientState();
+        await SaveDashboard();
+        await ResetGrid();
     }
 
     private void ToggleActions() => _actionsOpen = !_actionsOpen;
