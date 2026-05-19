@@ -38,6 +38,15 @@ Run after any change to the dashboard host, widgets, interop, or CSS. Exercise o
 - [ ] Picker is filtered by `IWidgetAccessControl` when one is registered.
 - [ ] Publish: a `<Version>` bump on `main` triggers `publish.yml` → NuGet + GitHub Packages + `v<version>` tag (no-op if the tag exists). `pages.yml` deploys the StandaloneWasm demo on push to `main`.
 
+## Version bumps & releasing
+
+- The version is `<Version>` in `src/BlazorDashboardKit/BlazorDashboardKit.csproj`. Publishing is automatic: `publish.yml` builds, pushes to NuGet.org + GitHub Packages, and tags `v<version>` on push to `main` — but only when no `v<version>` tag exists yet (tag-based idempotency). So **bumping `<Version>` on `main` is what ships a release.**
+- When asked to bump the version: find the diff since the last release — the last `v<version>` tag (`git describe --tags --abbrev=0`) or the last "bump"/version-change commit in the csproj.
+- ALWAYS update root `CHANGELOG.md` in the same change — never bump `<Version>` without a changelog entry.
+  - The file follows Keep a Changelog with an `## [Unreleased]` section: on bump, rename `[Unreleased]` to `## [x.y.z] - YYYY-MM-DD` (today's date) and open a fresh empty `[Unreleased]`.
+  - Summarize since the last release under `### Added` / `### Fixed` / `### Changed` (call out breaking changes explicitly) and dependency updates.
+- No submodules in this repo — there is no SDK/submodule diff to fold in (unlike sibling BTCPay-plugin repos).
+
 ## Conventions
 
 - Bugs/behavior changes: failing test first (TDD), root-cause before fixing (no symptom patches).
