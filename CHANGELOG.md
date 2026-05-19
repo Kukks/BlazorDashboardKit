@@ -7,6 +7,14 @@ follow [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **Per-piece override API**: every built-in UI piece (widget edit header,
+  empty-dashboard, widget-unavailable, widget-error, Add-Widget picker,
+  config-panel shell) is replaceable on `DashboardHost` via a
+  `…Template` (`RenderFragment<TContext>`) **or** a `…Component` (`Type`),
+  precedence Template > Component > kit default. The kit retains behavior the
+  override shouldn't reimplement (access-filtered picker list; config working
+  copy + Save/Cancel). The card wrapper (use `CssClass`/`--bdk-*` tokens) and
+  debug label (`ShowDebugInfo`) are intentionally not seams.
 - **Multiple dashboards** per owner: switch via a header selector, add and
   delete dashboards (the last one is protected). The data model already
   supported a collection; this exposes it in the UI and persists the active

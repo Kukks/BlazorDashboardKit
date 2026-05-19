@@ -153,6 +153,63 @@ working copy) and call `NotifyChangedAsync()` after a change:
 Leave `ConfigComponentType` null for a widget with no configuration (the panel
 then shows a "no configuration" message).
 
+## Overriding the built-in pieces
+
+Every UI piece the kit renders is replaceable on `DashboardHost`, two ways per
+piece, with the same precedence everywhere:
+
+**`…Template` (RenderFragment) > `…Component` (Type) > kit default.**
+
+Each override receives a typed context (data + action `EventCallback`s). A
+`…Template` is a `RenderFragment<TContext>`; a `…Component` is any component
+declaring `[Parameter] public TContext Context { get; set; }`.
+
+| Piece | Params | Context |
+|---|---|---|
+| Widget edit header | `WidgetHeaderTemplate` / `WidgetHeaderComponent` | `WidgetHeaderContext` — Placement, Descriptor, Configure/ToggleLock/Duplicate/Remove |
+| Empty dashboard | `EmptyTemplate` / `EmptyComponent` | `EmptyDashboardContext` — EditMode |
+| Widget unavailable | `WidgetUnavailableTemplate` / `WidgetUnavailableComponent` | `WidgetUnavailableContext` — Placement, EditMode, Remove |
+| Widget error | `WidgetErrorTemplate` / `WidgetErrorComponent` | `WidgetErrorContext` — Exception, Placement, Descriptor, Recover |
+| Add-Widget picker | `WidgetPickerTemplate` / `WidgetPickerComponent` | `WidgetPickerContext` — access-filtered Available, Add |
+| Config-panel shell | `ConfigPanelTemplate` / `ConfigPanelComponent` | `WidgetConfigShellContext` — Body, HasConfig, Save, Cancel |
+
+The kit keeps owning behavior the override shouldn't reimplement: the picker's
+list is still access-filtered; the config shell still gets a deep-cloned working
+copy with the kit's Save/Cancel semantics — your shell just supplies chrome
+around `Context.Body` and wires its controls to `Save`/`Cancel`.
+
+```razor
+@* Brand the empty state (RenderFragment) and swap the header for your own
+   component — anything you don't override keeps the kit default. *@
+<DashboardHost OwnerKey="@userId" EditMode="true"
+               WidgetHeaderComponent="typeof(MyWidgetToolbar)">
+    <EmptyTemplate Context="ctx">
+        <div class="my-empty">
+            @(ctx.EditMode ? "Add a widget to begin" : "Nothing here yet")
+        </div>
+    </EmptyTemplate>
+</DashboardHost>
+```
+
+```razor
+@* MyWidgetToolbar.razor — a component override implements the seam contract *@
+@code {
+    [Parameter] public WidgetHeaderContext Context { get; set; } = default!;
+}
+<div class="my-toolbar">
+    <span>@Context.Descriptor.Name</span>
+    <button @onclick="Context.Configure">⚙</button>
+    <button @onclick="Context.Remove">✕</button>
+</div>
+```
+
+Two pieces are intentionally **not** override seams (the alternative is simpler
+and already there): the **widget card wrapper** — restyle it with the per-widget
+`WidgetDescriptor.CssClass` and the `--bdk-*` theming tokens rather than
+replacing the element that hosts the header/body/error; and the **debug label**
+— it is an opt-in dev affordance, leave `ShowDebugInfo` at its default `false`
+to omit it.
+
 ## Custom persistence
 
 Implement `IDashboardStore` and register it before `AddBlazorDashboard()` (it uses `TryAdd`, so your registration wins):

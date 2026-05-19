@@ -35,6 +35,7 @@ Run after any change to the dashboard host, widgets, interop, or CSS. Exercise o
 - [ ] Resizing a widget honors the descriptor's Min/Max column/row size (gs-min/max-* emitted).
 - [ ] `GridOptions` (e.g. Columns=6) changes the grid layout; defaults match built-in behaviour when omitted.
 - [ ] Under OS dark mode the kit auto-uses the dark palette; an explicit `--bdk-*` override still wins.
+- [ ] Override seams work: a `…Template` and a `…Component` each replace the kit default for header/empty/unavailable/error/picker/config-shell; precedence Template > Component > default; contexts' action callbacks flow.
 - [ ] Picker is filtered by `IWidgetAccessControl` when one is registered.
 - [ ] Publish: a `<Version>` bump on `main` triggers `publish.yml` → NuGet + GitHub Packages + `v<version>` tag (no-op if the tag exists). `pages.yml` deploys the StandaloneWasm demo on push to `main`.
 
