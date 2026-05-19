@@ -212,15 +212,22 @@ No `@rendermode`. The page renders once on the server with the CSS fallback and 
 
 In a Blazor Web App the component runs in **two runtimes**: the server prerender pass *and* the browser (WebAssembly). Each has its own DI container, so `AddBlazorDashboard()` + your widgets must be registered in **both** `Program.cs` files (server and `.Client`). A page marked `@rendermode InteractiveWebAssembly`/`InteractiveAuto`, and every widget component it renders, must be in the **`.Client`** project (an assembly the browser downloads) — see `samples/SampleApp` (`Wasm.razor` lives in `.Client`; `Ssr.razor`/`Home.razor` in the server).
 
-Because prerender (server process) and interactive WASM (browser) are different runtimes, the default per-process in-memory store would hand the browser an empty dashboard after the WASM takeover. Back it with a **shared** `IDashboardStore` registered identically on both sides:
+Because prerender (server process) and interactive WASM (browser) are different runtimes, the store must be reachable from **both**. The built-in `UseJsonFileStore` is **server-side only** — under WebAssembly `System.IO` is a throwaway in-browser virtual filesystem (not persisted, not shared with the server), so it is **not** valid on the `.Client`. The shared backing must be something the browser can reach too — typically your API:
 
 ```csharp
-// BOTH SampleApp/Program.cs AND SampleApp.Client/Program.cs
-builder.Services.AddBlazorDashboard(o => o.UseJsonFileStore("…"))
+// Server Program.cs — real persistence lives here
+builder.Services.AddBlazorDashboard(o => o.UseJsonFileStore("…"))   // or your DB
     .AddDashboardWidget<MyWidget>(MyWidget.Descriptor);
+
+// SampleApp.Client/Program.cs — same widgets, an HTTP-backed store
+builder.Services.AddBlazorDashboard()                 // default in-memory replaced ↓
+    .AddDashboardWidget<MyWidget>(MyWidget.Descriptor);
+builder.Services.AddScoped<IDashboardStore, ApiDashboardStore>();  // calls your minimal API
 ```
 
-(`UseJsonFileStore` works where the file path is reachable; for WASM use a custom `IDashboardStore` that calls your API. The store is your integration seam — the kit never assumes one.)
+Register your `IDashboardStore` **before** `AddBlazorDashboard()` (it uses `TryAdd`, so yours wins). The store is your integration seam — the kit never assumes a filesystem, a DB, or an API.
+
+> **Store ↔ render-mode validity:** `UseJsonFileStore` → static SSR ✅, Interactive Server ✅, WebAssembly/Auto ❌ (browser FS). In-memory (default) → fine for a single runtime; never for prerender→WASM. For WASM/Auto use an API/HTTP- or browser-storage-backed `IDashboardStore`.
 
 ### Standalone Blazor WebAssembly / Server
 
