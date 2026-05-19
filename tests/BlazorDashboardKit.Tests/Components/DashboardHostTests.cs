@@ -486,6 +486,66 @@ public class DashboardHostTests : TestContext
         return cut.Instance;
     }
 
+    private IRenderedComponent<BlazorDashboardKit.Components.DashboardHost> RenderWithPlacements(
+        params WidgetPlacement[] placements)
+    {
+        var store = new InMemoryDashboardStore();
+        var c = new DashboardCollection { ActiveDashboardId = "d1" };
+        var dash = new DashboardDefinition { Id = "d1" };
+        foreach (var p in placements) { p.WidgetType = "Test"; dash.Widgets.Add(p); }
+        c.Dashboards.Add(dash);
+        store.SaveAsync("owner-1", c).GetAwaiter().GetResult();
+
+        var js = new RecordingJsRuntime();
+        Services.AddSingleton<IDashboardStore>(store);
+        Services.AddSingleton<IWidgetAccessControl, AllowAllWidgetAccessControl>();
+        Services.AddSingleton(new WidgetRegistry(new[]
+            { new WidgetDescriptor { Type = "Test", Name = "Test", Category = "T", ComponentType = typeof(TestWidget) } }));
+        Services.AddScoped<DashboardService>();
+        Services.AddScoped(_ => new DashboardJsInterop(js));
+
+        var cut = RenderComponent<BlazorDashboardKit.Components.DashboardHost>(p => p
+            .Add(x => x.OwnerKey, "owner-1").Add(x => x.EditMode, true));
+        cut.WaitForState(() => js.InitGridCalls == 1, TimeSpan.FromSeconds(5));
+        return cut;
+    }
+
+    private static (string x, string y, string w) Pos(IRenderedComponent<BlazorDashboardKit.Components.DashboardHost> cut, string id)
+    {
+        var el = cut.FindAll(".grid-stack-item").First(e => e.GetAttribute("gs-id") == id);
+        return (el.GetAttribute("gs-x")!, el.GetAttribute("gs-y")!, el.GetAttribute("gs-w")!);
+    }
+
+    [Fact]
+    public void ComputeGridPositions_Renders_Explicit_Coordinates_Verbatim()
+    {
+        var cut = RenderWithPlacements(
+            new WidgetPlacement { Id = "e1", Offset = 4, Row = 3, ColumnSize = 5, RowSpan = 2 });
+        Assert.Equal(("4", "3", "5"), Pos(cut, "e1"));
+    }
+
+    [Fact]
+    public void ComputeGridPositions_AutoFlows_And_Wraps_At_12_Columns()
+    {
+        // a(8 wide) then b(6 wide): 8+6 > 12 -> b wraps to x=0, y = a.RowSpan.
+        var cut = RenderWithPlacements(
+            new WidgetPlacement { Id = "a", Order = 0, ColumnSize = 8, RowSpan = 2 },
+            new WidgetPlacement { Id = "b", Order = 1, ColumnSize = 6, RowSpan = 1 });
+        Assert.Equal(("0", "0", "8"), Pos(cut, "a"));
+        Assert.Equal(("0", "2", "6"), Pos(cut, "b"));   // wrapped below a (a.RowSpan = 2)
+    }
+
+    [Fact]
+    public void ComputeGridPositions_AutoFlow_Starts_Below_The_Lowest_Explicit_Row()
+    {
+        // explicit occupies rows 2..3 (Row 2 + RowSpan 2) -> auto-flow starts at y=4.
+        var cut = RenderWithPlacements(
+            new WidgetPlacement { Id = "exp", Offset = 0, Row = 2, ColumnSize = 4, RowSpan = 2 },
+            new WidgetPlacement { Id = "auto", Order = 0, ColumnSize = 3, RowSpan = 1 });
+        Assert.Equal(("0", "2", "4"), Pos(cut, "exp"));
+        Assert.Equal(("0", "4", "3"), Pos(cut, "auto"));
+    }
+
     [Fact]
     public async Task OnGridChanged_Applies_Valid_Changes_And_Persists()
     {
