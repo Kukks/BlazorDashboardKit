@@ -17,6 +17,18 @@ public sealed record WidgetPickerContext(
     EventCallback<WidgetDescriptor> Add);
 
 /// <summary>
+/// Context for a custom config-panel shell. The kit still owns the working-copy
+/// clone and Save/Cancel semantics; the shell only supplies chrome around
+/// <see cref="Body"/> (the widget's config component, or a "no configuration"
+/// message) and wires its own controls to <see cref="Save"/>/<see cref="Cancel"/>.
+/// </summary>
+public sealed record WidgetConfigShellContext(
+    RenderFragment Body,
+    bool HasConfig,
+    EventCallback Save,
+    EventCallback Cancel);
+
+/// <summary>
 /// Context for a "widget type not registered" override. The placement still
 /// exists in storage; <see cref="Remove"/> deletes it.
 /// </summary>

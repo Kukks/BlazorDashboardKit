@@ -204,6 +204,8 @@ else
                    ConfigComponentType="_configuringDescriptor?.ConfigComponentType"
                    Config="@(_configuringPlacement?.Config ?? new JsonObject())"
                    ConfigChanged="SaveWidgetConfig"
+                   ShellTemplate="ConfigPanelTemplate"
+                   ShellComponent="ConfigPanelComponent"
                    OnClose="CloseConfigPanel" />
 }
 
@@ -237,6 +239,10 @@ else
     [Parameter] public RenderFragment<WidgetPickerContext>? WidgetPickerTemplate { get; set; }
     /// <summary>Override the Add-Widget picker (component; gets [Parameter] WidgetPickerContext Context).</summary>
     [Parameter] public Type? WidgetPickerComponent { get; set; }
+    /// <summary>Override the config-panel shell/chrome (RenderFragment); the kit still owns the working copy + Save/Cancel.</summary>
+    [Parameter] public RenderFragment<WidgetConfigShellContext>? ConfigPanelTemplate { get; set; }
+    /// <summary>Override the config-panel shell (component; gets [Parameter] WidgetConfigShellContext Context).</summary>
+    [Parameter] public Type? ConfigPanelComponent { get; set; }
 
     [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
 

@@ -2,30 +2,35 @@
 
 @if (Visible)
 {
-    <div class="widget-config-backdrop" @onclick="Close"></div>
-    <div class="widget-config-panel">
-        <div class="widget-config-panel-header">
-            <h5 class="mb-0">Configure</h5>
-            <button type="button" class="btn-close btn-close-white" @onclick="Close"></button>
+    var shellCtx = new WidgetConfigShellContext(Body, ConfigComponentType is not null,
+        EventCallback.Factory.Create(this, Save), EventCallback.Factory.Create(this, Close));
+    @if (ShellTemplate is not null)
+    {
+        @ShellTemplate(shellCtx)
+    }
+    else if (ShellComponent is not null)
+    {
+        <DynamicComponent Type="ShellComponent"
+                          Parameters="@(new Dictionary<string, object> { ["Context"] = shellCtx })" />
+    }
+    else
+    {
+        <div class="widget-config-backdrop" @onclick="Close"></div>
+        <div class="widget-config-panel">
+            <div class="widget-config-panel-header">
+                <h5 class="mb-0">Configure</h5>
+                <button type="button" class="btn-close btn-close-white" @onclick="Close"></button>
+            </div>
+            <div class="widget-config-panel-body">@Body</div>
+            <div class="widget-config-panel-footer">
+                <button type="button" class="btn btn-secondary" @onclick="Close">Cancel</button>
+                @if (ConfigComponentType is not null)
+                {
+                    <button type="button" class="btn btn-primary" @onclick="Save">Save</button>
+                }
+            </div>
         </div>
-        <div class="widget-config-panel-body">
-            @if (ConfigComponentType is not null && _working is not null)
-            {
-                <DynamicComponent Type="ConfigComponentType" Parameters="_childParameters" />
-            }
-            else
-            {
-                <p class="text-muted mb-0">This widget has no configuration.</p>
-            }
-        </div>
-        <div class="widget-config-panel-footer">
-            <button type="button" class="btn btn-secondary" @onclick="Close">Cancel</button>
-            @if (ConfigComponentType is not null)
-            {
-                <button type="button" class="btn btn-primary" @onclick="Save">Save</button>
-            }
-        </div>
-    </div>
+    }
 }
 
 @code {
@@ -37,6 +42,31 @@
     [Parameter] public JsonObject Config { get; set; } = new();
     [Parameter] public EventCallback<JsonObject> ConfigChanged { get; set; }
     [Parameter] public EventCallback OnClose { get; set; }
+
+    /// <summary>Optional consumer override for the panel shell/chrome (RenderFragment).</summary>
+    [Parameter] public RenderFragment<WidgetConfigShellContext>? ShellTemplate { get; set; }
+    /// <summary>Optional consumer override for the panel shell (component; gets [Parameter] WidgetConfigShellContext Context).</summary>
+    [Parameter] public Type? ShellComponent { get; set; }
+
+    // The widget's config component (or a "no configuration" message). Shared by
+    // the default shell and any consumer shell override (via the context).
+    private RenderFragment Body => builder =>
+    {
+        if (ConfigComponentType is not null && _working is not null)
+        {
+            builder.OpenComponent<DynamicComponent>(0);
+            builder.AddAttribute(1, nameof(DynamicComponent.Type), ConfigComponentType);
+            builder.AddAttribute(2, nameof(DynamicComponent.Parameters), _childParameters);
+            builder.CloseComponent();
+        }
+        else
+        {
+            builder.OpenElement(0, "p");
+            builder.AddAttribute(1, "class", "text-muted mb-0");
+            builder.AddContent(2, "This widget has no configuration.");
+            builder.CloseElement();
+        }
+    };
 
     // The panel owns Save/Cancel: the child edits this isolated working clone
     // and pushes updates into it; nothing reaches ConfigChanged until Save.
