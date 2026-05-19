@@ -12,8 +12,9 @@
     .AddDashboardWidget&lt;CounterWidget&gt;(CounterWidget.Descriptor)
     .AddDashboardWidget&lt;MarkdownNoteWidget&gt;(MarkdownNoteWidget.Descriptor);</code></pre>
     <p>
-        No manual asset tags: the kit's Blazor JS initializer injects its CSS and
-        GridStack automatically. Persist with
+        No manual asset tags: the kit's ESM interop injects its CSS and GridStack
+        lazily the first time a dashboard becomes interactive (dashboard-less
+        pages are left untouched). Persist with
         <code>AddBlazorDashboard(o =&gt; o.UseJsonFileStore("/data"))</code> or a
         custom <code>IDashboardStore</code>.
     </p>
@@ -77,8 +78,9 @@
         <li><strong>Lock</strong> a widget to pin it; <strong>duplicate</strong> a widget (independent config).</li>
         <li>Two-step confirm on destructive actions (remove widget, delete dashboard).</li>
         <li>Per-widget component-based configuration; export / import the layout as JSON.</li>
+        <li>Every built-in piece (header, picker, empty/error/unavailable states, config-panel shell) is overridable with your own <code>RenderFragment</code> or component.</li>
         <li>Render-mode-safe: Blazor Server, WebAssembly, and static SSR (graceful CSS fallback, read-only).</li>
-        <li>Zero-config assets (Blazor JS initializer); themeable via <code>--bdk-*</code> tokens with automatic dark mode.</li>
+        <li>Zero-config assets: injected lazily by the ESM interop on first interactive dashboard. Themeable via <code>--bdk-*</code> tokens (dark is opt-in — the kit matches its host, no OS override).</li>
         <li>Keyboard/pointer dismissable dropdowns, ARIA labels, no Bootstrap-JS dependency.</li>
         <li><code>OnDashboardChanged</code> hook and tunable <code>GridOptions</code> for host integration.</li>
     </ul>

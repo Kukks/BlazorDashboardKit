@@ -6,6 +6,24 @@ follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-05-19
+
+### Fixed
+- `initGrid` no longer throws when a kit asset fails to load. A failed
+  GridStack-script/CSS load is now swallowed (logged, non-fatal) so a flaky
+  CDN/network can't break the whole dashboard render.
+
+## [0.2.1] - 2026-05-19
+
+### Changed
+- Dropped the app-wide Blazor JS initializer (`BlazorDashboardKit.lib.module.js`).
+  Auto-discovered RCL initializers run on *every* page of the host app; instead
+  the ESM interop (`dashboard-interop.js`) injects the kit stylesheet, the
+  GridStack stylesheet and the GridStack script **lazily, the first time a
+  dashboard becomes interactive** — pages without a dashboard are left
+  completely untouched. Injection stays idempotent/memoized, and manual host
+  tags are still detected and skipped.
+
 ## [0.2.0] - 2026-05-19
 
 ### Added
