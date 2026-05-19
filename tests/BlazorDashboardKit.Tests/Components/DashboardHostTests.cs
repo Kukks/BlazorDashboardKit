@@ -457,6 +457,84 @@ public class DashboardHostTests : TestContext
         Assert.Equal("5", item.GetAttribute("gs-max-h"));
     }
 
+    private BlazorDashboardKit.Components.DashboardHost RenderHostWithSeededWidgets(
+        InMemoryDashboardStore store, RecordingJsRuntime js,
+        out IRenderedComponent<BlazorDashboardKit.Components.DashboardHost> cut)
+    {
+        var c = new DashboardCollection { ActiveDashboardId = "d1" };
+        c.Dashboards.Add(new DashboardDefinition
+        {
+            Id = "d1",
+            Widgets =
+            {
+                new WidgetPlacement { Id = "w1", WidgetType = "Test", ColumnSize = 2, RowSpan = 2 },
+                new WidgetPlacement { Id = "w2", WidgetType = "Test", ColumnSize = 3, RowSpan = 1 }
+            }
+        });
+        store.SaveAsync("owner-1", c).GetAwaiter().GetResult();
+
+        Services.AddSingleton<IDashboardStore>(store);
+        Services.AddSingleton<IWidgetAccessControl, AllowAllWidgetAccessControl>();
+        Services.AddSingleton(new WidgetRegistry(new[]
+            { new WidgetDescriptor { Type = "Test", Name = "Test", Category = "T", ComponentType = typeof(TestWidget) } }));
+        Services.AddScoped<DashboardService>();
+        Services.AddScoped(_ => new DashboardJsInterop(js));
+
+        cut = RenderComponent<BlazorDashboardKit.Components.DashboardHost>(p => p
+            .Add(x => x.OwnerKey, "owner-1").Add(x => x.EditMode, true));
+        cut.WaitForState(() => js.InitGridCalls == 1, TimeSpan.FromSeconds(5));
+        return cut.Instance;
+    }
+
+    [Fact]
+    public async Task OnGridChanged_Applies_Valid_Changes_And_Persists()
+    {
+        var store = new InMemoryDashboardStore();
+        var host = RenderHostWithSeededWidgets(store, new RecordingJsRuntime(), out var cut);
+
+        await cut.InvokeAsync(() => host.OnGridChanged(
+            """[{"id":"w1","x":3,"y":5,"w":4,"h":2}]"""));
+
+        var w1 = (await store.LoadAsync("owner-1"))!.Dashboards[0].Widgets.First(w => w.Id == "w1");
+        Assert.Equal(3, w1.Offset);
+        Assert.Equal(5, w1.Row);
+        Assert.Equal(5, w1.Order);
+        Assert.Equal(4, w1.ColumnSize);
+        Assert.Equal(2, w1.RowSpan);
+    }
+
+    [Fact]
+    public async Task OnGridChanged_Ignores_Malformed_Json_Without_Throwing()
+    {
+        var store = new InMemoryDashboardStore();
+        var host = RenderHostWithSeededWidgets(store, new RecordingJsRuntime(), out var cut);
+
+        var ex = await Record.ExceptionAsync(() =>
+            cut.InvokeAsync(() => host.OnGridChanged("{ not valid json")));
+        Assert.Null(ex);
+
+        // Untouched: w1 still at its seeded size, no explicit Offset.
+        var w1 = (await store.LoadAsync("owner-1"))!.Dashboards[0].Widgets.First(w => w.Id == "w1");
+        Assert.Null(w1.Offset);
+        Assert.Equal(2, w1.ColumnSize);
+    }
+
+    [Fact]
+    public async Task OnGridChanged_Skips_Unknown_Ids_But_Applies_The_Rest()
+    {
+        var store = new InMemoryDashboardStore();
+        var host = RenderHostWithSeededWidgets(store, new RecordingJsRuntime(), out var cut);
+
+        await cut.InvokeAsync(() => host.OnGridChanged(
+            """[{"id":"ghost","x":1,"y":1,"w":1,"h":1},{"id":"w2","x":0,"y":7,"w":6,"h":3}]"""));
+
+        var d = (await store.LoadAsync("owner-1"))!.Dashboards[0];
+        Assert.DoesNotContain(d.Widgets, w => w.Id == "ghost");
+        var w2 = d.Widgets.First(w => w.Id == "w2");
+        Assert.Equal(6, w2.ColumnSize);
+        Assert.Equal(7, w2.Row);
+    }
+
     [Fact]
     public void Static_Fallback_Class_Is_Cleared_Once_Grid_Is_Live()
     {
