@@ -83,7 +83,10 @@ export function ensureAssets() {
 // container's element id (DashboardHost._gridContainerId), so the element is
 // resolved here. Everything else mirrors the original initGrid.
 export async function initGrid(containerId, dotNetHelper, editMode, options) {
-    await ensureAssets();
+    // Best-effort: a failed asset load must NOT throw into the host (a kit
+    // must never destabilize its consumer). The GridStack guard below then
+    // degrades gracefully — exactly the original contract.
+    try { await ensureAssets(); } catch { /* handled by the guard below */ }
     var containerElement = typeof containerId === 'string'
         ? document.getElementById(containerId)
         : containerId;

@@ -11,7 +11,7 @@
          property (via dotnet msbuild) to decide whether a new package needs
          publishing: it publishes + tags only when no matching git tag exists. -->
     <PackageId>BlazorDashboardKit</PackageId>
-    <Version>0.2.1</Version>
+    <Version>0.2.2</Version>
     <Authors>Andrew Camilleri</Authors>
     <Description>A reusable, host-agnostic Blazor library for building customizable widget dashboards: a draggable/resizable grid of pluggable widgets, with persistence and access policy supplied by you. Runs in Blazor Server, WebAssembly, and static SSR.</Description>
     <PackageTags>blazor;dashboard;widgets;gridstack;razor-class-library</PackageTags>
