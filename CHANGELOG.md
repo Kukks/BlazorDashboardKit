@@ -6,6 +6,8 @@ follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-05-19
+
 ### Added
 - **Per-piece override API**: every built-in UI piece (widget edit header,
   empty-dashboard, widget-unavailable, widget-error, Add-Widget picker,
