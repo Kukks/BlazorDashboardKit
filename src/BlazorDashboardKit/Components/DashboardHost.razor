@@ -63,8 +63,21 @@ else
     <div class="d-flex gap-2 align-items-center">
         @if (EditMode)
         {
-            <WidgetPicker Available="_availableWidgets"
-                          OnWidgetAdded="AddWidget" />
+            var pickerCtx = new WidgetPickerContext(_availableWidgets,
+                EventCallback.Factory.Create<WidgetDescriptor>(this, AddWidget));
+            @if (WidgetPickerTemplate is not null)
+            {
+                @WidgetPickerTemplate(pickerCtx)
+            }
+            else if (WidgetPickerComponent is not null)
+            {
+                <DynamicComponent Type="WidgetPickerComponent"
+                                  Parameters="@(new Dictionary<string, object> { ["Context"] = pickerCtx })" />
+            }
+            else
+            {
+                <WidgetPicker Available="_availableWidgets" OnWidgetAdded="AddWidget" />
+            }
             @if (_actionsOpen)
             {
                 <div class="bdk-dropdown-backdrop" @onclick="() => _actionsOpen = false"></div>
@@ -220,6 +233,10 @@ else
     [Parameter] public RenderFragment<WidgetErrorContext>? WidgetErrorTemplate { get; set; }
     /// <summary>Override the widget error state (component; gets [Parameter] WidgetErrorContext Context).</summary>
     [Parameter] public Type? WidgetErrorComponent { get; set; }
+    /// <summary>Override the Add-Widget picker (RenderFragment).</summary>
+    [Parameter] public RenderFragment<WidgetPickerContext>? WidgetPickerTemplate { get; set; }
+    /// <summary>Override the Add-Widget picker (component; gets [Parameter] WidgetPickerContext Context).</summary>
+    [Parameter] public Type? WidgetPickerComponent { get; set; }
 
     [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
 

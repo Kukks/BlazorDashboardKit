@@ -597,6 +597,44 @@ public class DashboardHostTests : TestContext
     }
 
     [Fact]
+    public void WidgetPickerTemplate_Override_Replaces_The_Default_Picker_And_Add_Flows()
+    {
+        var js = new RecordingJsRuntime();
+        var descriptor = new WidgetDescriptor
+        {
+            Type = "Test", Name = "Test", Category = "T", ComponentType = typeof(TestWidget)
+        };
+        Services.AddSingleton<IDashboardStore>(new InMemoryDashboardStore());
+        Services.AddSingleton<IWidgetAccessControl, AllowAllWidgetAccessControl>();
+        Services.AddSingleton(new WidgetRegistry(new[] { descriptor }));
+        Services.AddScoped<DashboardService>();
+        Services.AddScoped(_ => new DashboardJsInterop(js));
+
+        RenderFragment<BlazorDashboardKit.Components.WidgetPickerContext> tpl = ctx => b =>
+        {
+            b.OpenElement(0, "button");
+            b.AddAttribute(1, "class", "my-add");
+            b.AddAttribute(2, "onclick",
+                EventCallback.Factory.Create(this, () => ctx.Add.InvokeAsync(ctx.Available[0])));
+            b.AddContent(3, $"add {ctx.Available.Count}");
+            b.CloseElement();
+        };
+
+        var cut = RenderComponent<BlazorDashboardKit.Components.DashboardHost>(p => p
+            .Add(x => x.OwnerKey, "owner-1")
+            .Add(x => x.EditMode, true)
+            .Add(x => x.WidgetPickerTemplate, tpl));
+        cut.WaitForState(() => js.InitGridCalls == 1, TimeSpan.FromSeconds(5));
+
+        Assert.NotEmpty(cut.FindAll("button.my-add"));                          // override rendered
+        Assert.Empty(cut.FindAll("button.btn-outline-primary.dropdown-toggle")); // default picker gone
+        Assert.Contains("add 1", cut.Markup);                                   // access-filtered list flowed in
+
+        cut.Find("button.my-add").Click();
+        cut.WaitForState(() => cut.FindAll(".grid-stack-item").Count == 1, TimeSpan.FromSeconds(5));
+    }
+
+    [Fact]
     public void EmptyTemplate_Override_Replaces_The_Default_Empty_State()
     {
         var js = new RecordingJsRuntime();

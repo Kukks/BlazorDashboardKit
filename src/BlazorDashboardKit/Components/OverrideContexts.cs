@@ -8,6 +8,15 @@ namespace BlazorDashboardKit.Components;
 public sealed record EmptyDashboardContext(bool EditMode);
 
 /// <summary>
+/// Context for a custom "add widget" picker. <see cref="Available"/> is already
+/// filtered by <c>IWidgetAccessControl</c>; invoke <see cref="Add"/> with a
+/// descriptor to add that widget.
+/// </summary>
+public sealed record WidgetPickerContext(
+    System.Collections.Generic.IReadOnlyList<WidgetDescriptor> Available,
+    EventCallback<WidgetDescriptor> Add);
+
+/// <summary>
 /// Context for a "widget type not registered" override. The placement still
 /// exists in storage; <see cref="Remove"/> deletes it.
 /// </summary>
