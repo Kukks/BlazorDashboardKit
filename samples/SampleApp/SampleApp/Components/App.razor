@@ -7,8 +7,8 @@
     <base href="/" />
     <link rel="stylesheet" href="bootstrap/bootstrap.min.css" />
     <link rel="stylesheet" href="app.css" />
-    @* BlazorDashboardKit's CSS + GridStack JS are injected automatically by its
-       Blazor JS initializer (BlazorDashboardKit.lib.module.js) — no manual tags. *@
+    @* BlazorDashboardKit's CSS + GridStack JS are injected lazily by the kit
+       the first time a dashboard becomes interactive — no manual tags. *@
     <link rel="stylesheet" href="SampleApp.styles.css" />
     <link rel="icon" type="image/png" href="favicon.png" />
     <HeadOutlet />

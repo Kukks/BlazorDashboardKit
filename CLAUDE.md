@@ -14,7 +14,7 @@ Host-agnostic Blazor RCL: a draggable/resizable GridStack dashboard of pluggable
 Run after any change to the dashboard host, widgets, interop, or CSS. Exercise on the **Server** page at minimum; spot-check WASM and SSR for render-mode parity. **Keep this list current: add a case when a feature is added; revise a case when behavior changes.**
 
 - [ ] All pages load without console errors: SampleApp `/` (Server), `/wasm`, `/ssr`; StandaloneWasm `/` + `/usage`.
-- [ ] No kit asset tags in the host page, yet `GridStack` is defined and `dashboard.css`/`gridstack.min.css` are present (JS initializer auto-injected them).
+- [ ] No kit asset tags in the host page; before any dashboard renders, `GridStack`/`dashboard.css`/`gridstack.min.css` are ABSENT; once a dashboard becomes interactive the kit injects them lazily (verify a no-dashboard page never loads them).
 - [ ] **Add Widget** dropdown opens with NO Bootstrap JS loaded; widgets grouped by category; closes on select.
 - [ ] Adding a widget renders it with real size/position (GridStack instance present; `bdk-grid-static` cleared; item rect non-zero, a grid cell not full-width).
 - [ ] **Actions** dropdown opens; Export downloads JSON; Import loads a JSON file (lock state preserved round-trip); menu closes after each.

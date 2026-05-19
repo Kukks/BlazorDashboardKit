@@ -35,16 +35,18 @@ builder.Services.AddBlazorDashboard(o => o.UseJsonFileStore("/var/data/dashboard
 
 ## Assets
 
-Nothing to add by hand. A Blazor JS initializer shipped in the package
-(`BlazorDashboardKit.lib.module.js`, auto-discovered for the RCL) injects the
-kit's stylesheet, the GridStack stylesheet, and the GridStack script into the
-host document before the app starts. The ESM interop (`dashboard-interop.js`)
-is imported by the library itself. Injection is idempotent: if your host
-already references an asset (e.g. you want to pin a version or control order),
-the initializer skips it.
+Nothing to add by hand. The kit's stylesheet, the GridStack stylesheet and
+the GridStack script are injected lazily by the ESM interop
+(`dashboard-interop.js`) the **first time a dashboard becomes interactive** —
+never globally, so host pages that have no dashboard are left completely
+untouched (an earlier version shipped an app-wide Blazor JS initializer; that
+was removed because auto-discovered RCL initializers run on every page of the
+host app). Injection is idempotent and memoized: if your host already
+references an asset (e.g. you want to pin a version or control order) or
+GridStack is already defined, nothing is duplicated.
 
 If you prefer fully manual control, you can still add them yourself — the
-initializer will then no-op:
+kit will then detect them and skip its own injection:
 
 ```html
 <link rel="stylesheet" href="_content/BlazorDashboardKit/gridstack/gridstack.min.css" />

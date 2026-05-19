@@ -7,23 +7,83 @@
 // `this._*` instance fields are module-scoped state.
 //
 // `GridStack` (gridstack-all.js) and `Chartist` are classic, non-module global
-// libraries. This module references them defensively via `globalThis`; the
-// consumer is responsible for including
-// `<script src="_content/BlazorDashboardKit/gridstack/gridstack-all.js">`
-// (and a Chartist build, if charts are used) before the dashboard becomes
-// interactive.
+// libraries referenced defensively via `globalThis`. This module injects the
+// kit's stylesheet, the GridStack stylesheet and the GridStack script itself
+// (see `ensureAssets`) the first time a dashboard becomes interactive — i.e.
+// only when this module is imported by `DashboardJsInterop.InitGridAsync`,
+// never globally — so host pages without a dashboard are untouched. The
+// consumer is responsible only for a Chartist build, and only if charts are
+// used.
 
 let _grid = null;
 let _charts = {};
 let _dotNetHelper = null;
 let _changeBatch = null;
 
+// --- Lazy asset injection ---
+//
+// Replaces the old global `BlazorDashboardKit.lib.module.js` Blazor JS
+// initializer, which injected these on *every* Blazor page of the host app
+// (auto-discovered RCL initializers run app-wide) and so perturbed unrelated
+// pages. Injection now happens here, lazily: this module is only imported when
+// a dashboard turns interactive, so a host page with no dashboard never loads
+// GridStack. Idempotent and memoized — if the host already references an asset
+// (pinned version / custom order) or GridStack is already defined, nothing is
+// duplicated. `initGrid` awaits this, so GridStack is guaranteed ready before
+// use (the old eager inject only worked by startup-timing luck).
+const ASSET_BASE = '_content/BlazorDashboardKit/';
+let _assetsPromise = null;
+
+function ensureStylesheet(relativePath) {
+    const present = [...document.querySelectorAll('link[rel="stylesheet"]')]
+        .some(l => (l.getAttribute('href') || '').indexOf(relativePath) !== -1);
+    if (present) return;
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = ASSET_BASE + relativePath;
+    document.head.appendChild(link);
+}
+
+function ensureGridStackScript() {
+    return new Promise((resolve, reject) => {
+        if (typeof globalThis.GridStack !== 'undefined') { resolve(); return; }
+        const rel = 'gridstack/gridstack-all.js';
+        const existing = [...document.querySelectorAll('script')]
+            .find(s => (s.getAttribute('src') || '').indexOf(rel) !== -1);
+        if (existing) {
+            existing.addEventListener('load', () => resolve());
+            existing.addEventListener('error', () => reject(new Error('Failed to load GridStack')));
+            // It may have finished loading before this listener attached.
+            Promise.resolve().then(() => {
+                if (typeof globalThis.GridStack !== 'undefined') resolve();
+            });
+            return;
+        }
+        const script = document.createElement('script');
+        script.src = ASSET_BASE + rel;
+        script.async = false; // ordered relative to other dynamically inserted scripts
+        script.addEventListener('load', () => resolve());
+        script.addEventListener('error', () => reject(new Error('Failed to load GridStack')));
+        document.head.appendChild(script);
+    });
+}
+
+// Idempotent + memoized. Resolves once GridStack is available.
+export function ensureAssets() {
+    if (_assetsPromise) return _assetsPromise;
+    ensureStylesheet('gridstack/gridstack.min.css');
+    ensureStylesheet('dashboard.css');
+    _assetsPromise = ensureGridStackScript();
+    return _assetsPromise;
+}
+
 // --- Gridstack integration ---
 
 // BTCPay passed a DOM ElementReference; the host-agnostic kit passes the
 // container's element id (DashboardHost._gridContainerId), so the element is
 // resolved here. Everything else mirrors the original initGrid.
-export function initGrid(containerId, dotNetHelper, editMode, options) {
+export async function initGrid(containerId, dotNetHelper, editMode, options) {
+    await ensureAssets();
     var containerElement = typeof containerId === 'string'
         ? document.getElementById(containerId)
         : containerId;
