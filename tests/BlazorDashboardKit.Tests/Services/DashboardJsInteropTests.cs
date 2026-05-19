@@ -102,6 +102,26 @@ public class DashboardJsInteropTests
     }
 
     [Fact]
+    public async Task Module_Methods_Are_Safe_NoOps_Before_InitGrid()
+    {
+        // Plausible ordering: ExitEditMode/Done or Export fires before the grid
+        // was ever initialized. With _module still null these must no-op, never
+        // NRE on the module or eagerly import it.
+        var js = new FakeJsRuntime();
+        var sut = new DashboardJsInterop(js);
+
+        await sut.SetEditModeAsync(true, interactive: true, default);
+        await sut.DestroyGridAsync(interactive: true, default);
+        await sut.AddGridWidgetAsync(default, interactive: true, default);
+        await sut.RemoveGridWidgetAsync(default, interactive: true, default);
+        await sut.DownloadJsonAsync("f.json", "{}", interactive: true, default);
+        await sut.CopyToClipboardAsync("x", interactive: true, default);
+
+        Assert.Empty(js.Invocations);          // never imported the module
+        Assert.Empty(js.Module.Invocations);   // never invoked anything on it
+    }
+
+    [Fact]
     public async Task Dispose_Is_Idempotent_And_NoThrow()
     {
         var js = new FakeJsRuntime();
