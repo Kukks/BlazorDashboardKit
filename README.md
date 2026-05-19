@@ -31,7 +31,7 @@ builder.Services.AddBlazorDashboard()
 builder.Services.AddBlazorDashboard(o => o.UseJsonFileStore("/var/data/dashboards"));
 ```
 
-`AddDashboardWidget<TComponent>(descriptor)` registers a widget type with its descriptor; call it once per widget. Register the same services on every render target you use: in a Blazor Web App with WebAssembly/Auto interactivity, the server project and the `.Client` project each have their own DI container, so `AddBlazorDashboard()` (and your widgets) must be registered in both `Program.cs` files.
+`AddDashboardWidget<TComponent>(descriptor)` registers a widget type with its descriptor; call it once per widget. **Where** to register it depends on the render mode — see [Render modes & hosting](#render-modes--hosting) (the short version: register in every DI container the render mode instantiates).
 
 ## Assets
 
@@ -180,8 +180,50 @@ public interface IWidgetAccessControl
 
 It is called both to filter the widget picker and to gate each rendered widget. `user` is the cascaded authentication state's principal, or `null` when there is no auth context. `WidgetDescriptor.RequiredPermissions` is a `string[]` of opaque tokens that the library never interprets — they mean only what your `IWidgetAccessControl` decides they mean.
 
-## Render modes
+## Render modes & hosting
 
-`DashboardHost` works in Blazor Server, WebAssembly, and static SSR. It is render-mode-safe: during static SSR and prerender it emits markup only and never invokes JavaScript; the grid is initialized lazily once the component reaches an interactive render. Until GridStack is live (static SSR, prerender, and the brief pre-interactive window) the kit applies a CSS fallback so widgets render in a readable stacked flow instead of collapsing — so a static-SSR dashboard degrades gracefully rather than breaking. For static SSR, pass `ReadOnly="true"` so non-functional edit affordances are not emitted. The in-memory store is per-process, so if you render the same dashboard under different interactivity locations (e.g. a server-prerendered page that becomes WebAssembly-interactive) back it with a shared store (`UseJsonFileStore` or a custom `IDashboardStore`) registered identically on every side.
+`DashboardHost` is render-mode-safe. It touches no JavaScript until it reaches an interactive render (`OnAfterRenderAsync`), so static SSR and the prerender pass emit markup only; until GridStack is live (static SSR, prerender, and the brief pre-interactive window) a CSS fallback lays widgets out in a readable stacked flow instead of collapsing to 0×0. It works in every Blazor hosting model — the only thing that changes is *where you register it*.
 
-A standalone Blazor WebAssembly sample (the live demo above) lives in `samples/StandaloneWasm`; the Blazor Web App sample (Server + WASM + SSR pages) is in `samples/SampleApp`.
+**The one rule:** call `AddBlazorDashboard()` (and your `AddDashboardWidget<…>`) in **every DI container the render mode instantiates**, with the **same** widget set.
+
+| Hosting model | Register `AddBlazorDashboard()` in | Widgets & WASM/Auto pages must live in | Store |
+|---|---|---|---|
+| Static SSR (no `@rendermode`) | server `Program.cs` | server project | any; pass `ReadOnly="true"` |
+| Interactive Server | server `Program.cs` | server project | any |
+| Interactive WebAssembly (Web App) | **server *and* `.Client`** `Program.cs` | the `.Client` project | shared (see below) |
+| Interactive Auto (Web App) | **server *and* `.Client`** `Program.cs` | the `.Client` project | shared (see below) |
+| Standalone Blazor WebAssembly | WASM `Program.cs` | the WASM project | shared if multi-device, else in-memory |
+| Standalone Blazor Server | server `Program.cs` | server project | any |
+
+### Static SSR
+
+No `@rendermode`. The page renders once on the server with the CSS fallback and no JS. Pass `ReadOnly="true"` so non-functional edit affordances aren't emitted:
+
+```razor
+@page "/dashboard"
+<DashboardHost OwnerKey="@userId" ReadOnly="true" />
+```
+
+### Interactive Server
+
+`@rendermode InteractiveServer`. Full drag/resize/config over the SignalR circuit. Register on the server only. Prerendering (on by default) shows the server-rendered fallback first, then the grid initializes when the circuit connects — automatic, nothing to do.
+
+### Interactive WebAssembly / Interactive Auto (Blazor Web App)
+
+In a Blazor Web App the component runs in **two runtimes**: the server prerender pass *and* the browser (WebAssembly). Each has its own DI container, so `AddBlazorDashboard()` + your widgets must be registered in **both** `Program.cs` files (server and `.Client`). A page marked `@rendermode InteractiveWebAssembly`/`InteractiveAuto`, and every widget component it renders, must be in the **`.Client`** project (an assembly the browser downloads) — see `samples/SampleApp` (`Wasm.razor` lives in `.Client`; `Ssr.razor`/`Home.razor` in the server).
+
+Because prerender (server process) and interactive WASM (browser) are different runtimes, the default per-process in-memory store would hand the browser an empty dashboard after the WASM takeover. Back it with a **shared** `IDashboardStore` registered identically on both sides:
+
+```csharp
+// BOTH SampleApp/Program.cs AND SampleApp.Client/Program.cs
+builder.Services.AddBlazorDashboard(o => o.UseJsonFileStore("…"))
+    .AddDashboardWidget<MyWidget>(MyWidget.Descriptor);
+```
+
+(`UseJsonFileStore` works where the file path is reachable; for WASM use a custom `IDashboardStore` that calls your API. The store is your integration seam — the kit never assumes one.)
+
+### Standalone Blazor WebAssembly / Server
+
+Single runtime, single `Program.cs` — register there. The standalone WASM demo (`samples/StandaloneWasm`, the live demo above) uses the default in-memory store; swap in a real `IDashboardStore` to persist.
+
+Samples: `samples/SampleApp` is a Blazor Web App with Server (`/`), WASM (`/wasm`), and static SSR (`/ssr`) pages; `samples/StandaloneWasm` is a pure static WebAssembly app.
