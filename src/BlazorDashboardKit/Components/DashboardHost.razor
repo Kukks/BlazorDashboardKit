@@ -141,6 +141,8 @@ else
                                          OnSizeChanged="(_) => OnWidgetSizeChanged()"
                                          OnToggleLock="() => ToggleWidgetLock(wp.Placement)"
                                          OnDuplicate="() => DuplicateWidget(wp.Placement)"
+                                         HeaderTemplate="WidgetHeaderTemplate"
+                                         HeaderComponent="WidgetHeaderComponent"
                                          OnConfigure="() => OpenConfigPanel(wp.Placement, descriptor)" />
                     }
                 </div>
@@ -173,6 +175,10 @@ else
     [Parameter] public DashboardGridOptions? GridOptions { get; set; }
     /// <summary>Raised after the dashboard is persisted (any add/remove/move/resize/config/rename/import). For external sync, analytics, etc.</summary>
     [Parameter] public EventCallback OnDashboardChanged { get; set; }
+    /// <summary>Override the widget edit-mode header with your own RenderFragment.</summary>
+    [Parameter] public RenderFragment<WidgetHeaderContext>? WidgetHeaderTemplate { get; set; }
+    /// <summary>Override the widget edit-mode header with your own component (gets [Parameter] WidgetHeaderContext Context). Ignored when WidgetHeaderTemplate is set.</summary>
+    [Parameter] public Type? WidgetHeaderComponent { get; set; }
 
     [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
 

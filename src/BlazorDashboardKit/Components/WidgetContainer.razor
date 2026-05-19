@@ -3,6 +3,18 @@
 <div class="widget @(Descriptor.CssClass ?? "")">
     @if (EditMode)
     {
+        var headerCtx = new WidgetHeaderContext(Placement, Descriptor, OnConfigure, OnToggleLock, OnDuplicate, OnRemove);
+        @if (HeaderTemplate is not null)
+        {
+            @HeaderTemplate(headerCtx)
+        }
+        else if (HeaderComponent is not null)
+        {
+            <DynamicComponent Type="HeaderComponent"
+                              Parameters="@(new Dictionary<string, object> { ["Context"] = headerCtx })" />
+        }
+        else
+        {
         <div class="widget-edit-header">
             <div class="widget-drag-handle">
                 <span class="widget-grip-dots"></span>
@@ -48,6 +60,7 @@
                 }
             </div>
         </div>
+        }
     }
     <ErrorBoundary @ref="_errorBoundary">
         <ChildContent>
@@ -89,6 +102,10 @@
     [Parameter] public EventCallback OnConfigure { get; set; }
     [Parameter] public EventCallback OnToggleLock { get; set; }
     [Parameter] public EventCallback OnDuplicate { get; set; }
+    /// <summary>Optional consumer override for the edit-mode header (RenderFragment).</summary>
+    [Parameter] public RenderFragment<WidgetHeaderContext>? HeaderTemplate { get; set; }
+    /// <summary>Optional consumer override for the edit-mode header (component type; gets [Parameter] WidgetHeaderContext Context).</summary>
+    [Parameter] public Type? HeaderComponent { get; set; }
 
     private ErrorBoundary? _errorBoundary;
     private bool _confirmRemove;

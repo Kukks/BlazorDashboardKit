@@ -2,6 +2,7 @@ using BlazorDashboardKit.Abstractions;
 using BlazorDashboardKit.Models;
 using BlazorDashboardKit.Services;
 using Bunit;
+using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
@@ -28,6 +29,70 @@ public class WidgetContainerTests : TestContext
             .Add(x => x.EditMode, editMode)
             .Add(x => x.ReadOnly, readOnly)
             .Add(x => x.HostInteractive, hostInteractive));
+    }
+
+    [Fact]
+    public void Default_Header_Renders_When_No_Override()
+    {
+        Services.AddSingleton<IWidgetAccessControl, AllowAllWidgetAccessControl>();
+        var cut = RenderComponent<BlazorDashboardKit.Components.WidgetContainer>(p => p
+            .Add(x => x.Placement, new WidgetPlacement { WidgetType = "Probe" })
+            .Add(x => x.Descriptor, Probe(false))
+            .Add(x => x.EditMode, true));
+
+        Assert.NotEmpty(cut.FindAll(".widget-edit-header"));
+        Assert.NotEmpty(cut.FindAll("button[title='Remove widget']"));
+        Assert.Empty(cut.FindAll(".custom-header"));
+    }
+
+    [Fact]
+    public void Component_Type_Override_Replaces_The_Header_And_Actions_Flow()
+    {
+        Services.AddSingleton<IWidgetAccessControl, AllowAllWidgetAccessControl>();
+        var removed = 0;
+        var cut = RenderComponent<BlazorDashboardKit.Components.WidgetContainer>(p => p
+            .Add(x => x.Placement, new WidgetPlacement { WidgetType = "Probe" })
+            .Add(x => x.Descriptor, Probe(false))
+            .Add(x => x.EditMode, true)
+            .Add(x => x.OnRemove, () => removed++)
+            .Add(x => x.HeaderComponent, typeof(TestHeaderComponent)));
+
+        Assert.NotEmpty(cut.FindAll(".custom-header"));        // override rendered
+        Assert.Empty(cut.FindAll(".widget-edit-header"));      // default replaced
+        Assert.Empty(cut.FindAll("button[title='Remove widget']"));
+
+        cut.Find("button.custom-remove").Click();              // its Remove callback flows
+        Assert.Equal(1, removed);
+    }
+
+    [Fact]
+    public void RenderFragment_Override_Wins_Over_Component_And_Default()
+    {
+        Services.AddSingleton<IWidgetAccessControl, AllowAllWidgetAccessControl>();
+        var removed = 0;
+        RenderFragment<BlazorDashboardKit.Components.WidgetHeaderContext> tpl = ctx => b =>
+        {
+            b.OpenElement(0, "button");
+            b.AddAttribute(1, "class", "frag-remove");
+            b.AddAttribute(2, "onclick", ctx.Remove);
+            b.AddContent(3, "remove");
+            b.CloseElement();
+        };
+
+        var cut = RenderComponent<BlazorDashboardKit.Components.WidgetContainer>(p => p
+            .Add(x => x.Placement, new WidgetPlacement { WidgetType = "Probe" })
+            .Add(x => x.Descriptor, Probe(false))
+            .Add(x => x.EditMode, true)
+            .Add(x => x.OnRemove, () => removed++)
+            .Add(x => x.HeaderTemplate, tpl)
+            .Add(x => x.HeaderComponent, typeof(TestHeaderComponent))); // must be ignored
+
+        Assert.NotEmpty(cut.FindAll("button.frag-remove"));
+        Assert.Empty(cut.FindAll(".custom-header"));           // component override not used
+        Assert.Empty(cut.FindAll(".widget-edit-header"));      // default not used
+
+        cut.Find("button.frag-remove").Click();
+        Assert.Equal(1, removed);
     }
 
     [Fact]
