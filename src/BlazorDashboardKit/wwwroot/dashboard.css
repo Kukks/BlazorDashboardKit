@@ -30,16 +30,11 @@
    standalone defaults — the BTCPay var() fallbacks still take precedence when a
    host theme is present, and a consumer's explicit --bdk-* override (any
    selector beats these zero-specificity :where rules) still wins. */
-@media (prefers-color-scheme: dark) {
-    :where(.grid-stack, .dashboard-header, .widget-config-panel, .widget-config-backdrop) {
-        --bdk-surface:       var(--btcpay-bg-tile, #1e1e2f);
-        --bdk-surface-muted: var(--btcpay-body-bg, #181826);
-        --bdk-text:          var(--btcpay-body-text, #e6e6ef);
-        --bdk-text-muted:    var(--btcpay-body-text-muted, #9a9ab0);
-        --bdk-border:        var(--btcpay-body-border-light, rgba(255, 255, 255, 0.12));
-        --bdk-shadow:        var(--btcpay-box-shadow, 0 1px 3px rgba(0, 0, 0, 0.4));
-    }
-}
+/* No automatic OS dark mode: the kit must match its host, not override it via
+   prefers-color-scheme (a light host page would otherwise get a dark widget
+   card). Dark is opt-in — set the --bdk-* tokens (or inherit --btcpay-*). A
+   consumer who wants OS-driven dark can add their own prefers-color-scheme
+   block setting --bdk-surface/-text/etc. */
 
 /* ── Gridstack base ── */
 .grid-stack {

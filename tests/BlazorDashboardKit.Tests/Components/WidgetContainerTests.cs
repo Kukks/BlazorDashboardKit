@@ -32,6 +32,24 @@ public class WidgetContainerTests : TestContext
     }
 
     [Fact]
+    public void Default_Header_Controls_Are_Visible_Without_An_Icon_Font()
+    {
+        // The kit ships no icon font; its own controls must render visible
+        // glyphs, not empty icon-font spans (regression: Configure/Remove blank).
+        Services.AddSingleton<IWidgetAccessControl, AllowAllWidgetAccessControl>();
+        var cut = RenderComponent<BlazorDashboardKit.Components.WidgetContainer>(p => p
+            .Add(x => x.Placement, new WidgetPlacement { WidgetType = "Probe" })
+            .Add(x => x.Descriptor, Probe(false))
+            .Add(x => x.EditMode, true));
+
+        Assert.Empty(cut.FindAll("span.icon"));   // no icon-font dependency anywhere
+        Assert.Equal("⚙", cut.Find("button[title='Configure widget'] span").TextContent);
+        Assert.Equal("✕", cut.Find("button[title='Remove widget'] span").TextContent);
+        Assert.Equal("⧉", cut.Find("button[title='Duplicate widget'] span").TextContent);
+        Assert.NotEmpty(cut.Find("button[title='Lock widget'] span").TextContent);
+    }
+
+    [Fact]
     public void Default_Header_Renders_When_No_Override()
     {
         Services.AddSingleton<IWidgetAccessControl, AllowAllWidgetAccessControl>();

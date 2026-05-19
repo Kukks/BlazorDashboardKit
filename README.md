@@ -56,9 +56,12 @@ initializer will then no-op:
 
 The kit ships `--bdk-*` CSS custom properties with sensible standalone
 defaults; each also falls back to the matching BTCPay Server variable, so the
-kit adopts a BTCPay theme automatically. It also **auto-switches to a dark
-palette** under `prefers-color-scheme: dark`. Override any token on an ancestor
-(zero-specificity `:where()` selectors mean your values always win), e.g.
+kit adopts a BTCPay theme automatically. It does **not** auto-switch on OS
+`prefers-color-scheme` — a reusable kit must match its host, not override it
+(a light host page would otherwise get a dark widget card). **Dark mode is
+opt-in:** set the tokens (or inherit `--btcpay-*`). Override any token on an
+ancestor (zero-specificity `:where()` selectors mean your values always win),
+e.g.
 
 ```css
 :root {
@@ -66,6 +69,15 @@ palette** under `prefers-color-scheme: dark`. Override any token on an ancestor
     --bdk-text: #e8eaf0;
     --bdk-primary: #6c8cff;
     --bdk-radius: 0.75rem;
+}
+```
+
+Want the kit to follow the OS theme? Opt in from your app (so it only happens
+where your page is also dark):
+
+```css
+@media (prefers-color-scheme: dark) {
+    :root { --bdk-surface: #1e1e2f; --bdk-text: #e6e6ef; --bdk-border: rgba(255,255,255,.12); }
 }
 ```
 

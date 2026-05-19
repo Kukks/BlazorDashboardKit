@@ -39,7 +39,9 @@ follow [Semantic Versioning](https://semver.org/).
 - Per-widget min/max size from the descriptor is now enforced by GridStack
   (`gs-min/max-w/h`).
 - Themeable CSS via `--bdk-*` custom properties (standalone defaults that also
-  map to BTCPay variables); automatic dark mode under `prefers-color-scheme`.
+  map to BTCPay variables). Dark mode is opt-in via tokens — the kit does not
+  auto-switch on OS `prefers-color-scheme` (it must match its host, not a light
+  page getting a dark widget card).
 - CSS fallback layout so the grid degrades gracefully under static SSR /
   prerender / the pre-interactive window instead of collapsing.
 - Blazor JS initializer auto-injects the kit's CSS + GridStack — no manual host
