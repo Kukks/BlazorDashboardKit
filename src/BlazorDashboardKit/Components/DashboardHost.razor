@@ -120,9 +120,23 @@ else
                 <div class="grid-stack-item-content">
                     @if (descriptor is null)
                     {
-                        <WidgetUnavailable Placement="wp.Placement"
-                                           EditMode="EditMode"
-                                           OnRemove="() => RemoveWidget(wp.Placement)" />
+                        var uctx = new WidgetUnavailableContext(wp.Placement, EditMode,
+                            EventCallback.Factory.Create(this, () => RemoveWidget(wp.Placement)));
+                        @if (WidgetUnavailableTemplate is not null)
+                        {
+                            @WidgetUnavailableTemplate(uctx)
+                        }
+                        else if (WidgetUnavailableComponent is not null)
+                        {
+                            <DynamicComponent Type="WidgetUnavailableComponent"
+                                              Parameters="@(new Dictionary<string, object> { ["Context"] = uctx })" />
+                        }
+                        else
+                        {
+                            <WidgetUnavailable Placement="wp.Placement"
+                                               EditMode="EditMode"
+                                               OnRemove="uctx.Remove" />
+                        }
                     }
                     else
                     {
@@ -143,6 +157,8 @@ else
                                          OnDuplicate="() => DuplicateWidget(wp.Placement)"
                                          HeaderTemplate="WidgetHeaderTemplate"
                                          HeaderComponent="WidgetHeaderComponent"
+                                         ErrorTemplate="WidgetErrorTemplate"
+                                         ErrorComponent="WidgetErrorComponent"
                                          OnConfigure="() => OpenConfigPanel(wp.Placement, descriptor)" />
                     }
                 </div>
@@ -151,10 +167,23 @@ else
     }
     else if (_activeDashboard is not null)
     {
-        <div class="dashboard-empty text-center py-5">
-            <h5 class="text-muted mb-3">This dashboard is empty</h5>
-            <p class="text-secondary mb-3">Add widgets in edit mode to get started.</p>
-        </div>
+        var emptyCtx = new EmptyDashboardContext(EditMode);
+        @if (EmptyTemplate is not null)
+        {
+            @EmptyTemplate(emptyCtx)
+        }
+        else if (EmptyComponent is not null)
+        {
+            <DynamicComponent Type="EmptyComponent"
+                              Parameters="@(new Dictionary<string, object> { ["Context"] = emptyCtx })" />
+        }
+        else
+        {
+            <div class="dashboard-empty text-center py-5">
+                <h5 class="text-muted mb-3">This dashboard is empty</h5>
+                <p class="text-secondary mb-3">Add widgets in edit mode to get started.</p>
+            </div>
+        }
     }
 </div>
 
@@ -179,6 +208,18 @@ else
     [Parameter] public RenderFragment<WidgetHeaderContext>? WidgetHeaderTemplate { get; set; }
     /// <summary>Override the widget edit-mode header with your own component (gets [Parameter] WidgetHeaderContext Context). Ignored when WidgetHeaderTemplate is set.</summary>
     [Parameter] public Type? WidgetHeaderComponent { get; set; }
+    /// <summary>Override the empty-dashboard state (RenderFragment).</summary>
+    [Parameter] public RenderFragment<EmptyDashboardContext>? EmptyTemplate { get; set; }
+    /// <summary>Override the empty-dashboard state (component; gets [Parameter] EmptyDashboardContext Context).</summary>
+    [Parameter] public Type? EmptyComponent { get; set; }
+    /// <summary>Override the "widget type not registered" placeholder (RenderFragment).</summary>
+    [Parameter] public RenderFragment<WidgetUnavailableContext>? WidgetUnavailableTemplate { get; set; }
+    /// <summary>Override the "widget type not registered" placeholder (component; gets [Parameter] WidgetUnavailableContext Context).</summary>
+    [Parameter] public Type? WidgetUnavailableComponent { get; set; }
+    /// <summary>Override the widget error state (RenderFragment).</summary>
+    [Parameter] public RenderFragment<WidgetErrorContext>? WidgetErrorTemplate { get; set; }
+    /// <summary>Override the widget error state (component; gets [Parameter] WidgetErrorContext Context).</summary>
+    [Parameter] public Type? WidgetErrorComponent { get; set; }
 
     [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
 

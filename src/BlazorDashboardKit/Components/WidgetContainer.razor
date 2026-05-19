@@ -69,11 +69,27 @@
                               Parameters="@GetWidgetParameters()" />
         </ChildContent>
         <ErrorContent Context="ex">
-            <div class="text-danger small p-2">
-                <strong>Widget error</strong>
-                <p class="mb-0">@ex.Message</p>
-                <button class="btn btn-link btn-sm p-0 mt-1" @onclick="RecoverFromError">Retry</button>
-            </div>
+            @{
+                var errCtx = new WidgetErrorContext(ex, Placement, Descriptor,
+                    EventCallback.Factory.Create(this, RecoverFromError));
+            }
+            @if (ErrorTemplate is not null)
+            {
+                @ErrorTemplate(errCtx)
+            }
+            else if (ErrorComponent is not null)
+            {
+                <DynamicComponent Type="ErrorComponent"
+                                  Parameters="@(new Dictionary<string, object> { ["Context"] = errCtx })" />
+            }
+            else
+            {
+                <div class="text-danger small p-2">
+                    <strong>Widget error</strong>
+                    <p class="mb-0">@ex.Message</p>
+                    <button class="btn btn-link btn-sm p-0 mt-1" @onclick="RecoverFromError">Retry</button>
+                </div>
+            }
         </ErrorContent>
     </ErrorBoundary>
 </div>
@@ -106,6 +122,10 @@
     [Parameter] public RenderFragment<WidgetHeaderContext>? HeaderTemplate { get; set; }
     /// <summary>Optional consumer override for the edit-mode header (component type; gets [Parameter] WidgetHeaderContext Context).</summary>
     [Parameter] public Type? HeaderComponent { get; set; }
+    /// <summary>Optional consumer override for the widget error state (RenderFragment).</summary>
+    [Parameter] public RenderFragment<WidgetErrorContext>? ErrorTemplate { get; set; }
+    /// <summary>Optional consumer override for the widget error state (component; gets [Parameter] WidgetErrorContext Context).</summary>
+    [Parameter] public Type? ErrorComponent { get; set; }
 
     private ErrorBoundary? _errorBoundary;
     private bool _confirmRemove;

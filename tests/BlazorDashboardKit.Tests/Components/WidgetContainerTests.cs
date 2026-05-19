@@ -96,6 +96,42 @@ public class WidgetContainerTests : TestContext
     }
 
     [Fact]
+    public void ErrorTemplate_Override_Replaces_The_Default_Error_State()
+    {
+        Services.AddSingleton<IWidgetAccessControl, AllowAllWidgetAccessControl>();
+        var descriptor = new WidgetDescriptor
+        {
+            Type = "Boom", Name = "Boom", Category = "T",
+            ComponentType = typeof(ThrowingWidget)
+        };
+        RenderFragment<BlazorDashboardKit.Components.WidgetErrorContext> tpl = ctx => b =>
+        {
+            b.OpenElement(0, "div");
+            b.AddAttribute(1, "class", "my-error");
+            b.AddContent(2, ctx.Exception.Message);
+            b.OpenElement(3, "button");
+            b.AddAttribute(4, "class", "my-retry");
+            b.AddAttribute(5, "onclick", ctx.Recover);
+            b.AddContent(6, "retry");
+            b.CloseElement();
+            b.CloseElement();
+        };
+
+        var cut = RenderComponent<BlazorDashboardKit.Components.WidgetContainer>(p => p
+            .Add(x => x.Placement, new WidgetPlacement { WidgetType = "Boom" })
+            .Add(x => x.Descriptor, descriptor)
+            .Add(x => x.EditMode, false)
+            .Add(x => x.ErrorTemplate, tpl));
+
+        Assert.NotEmpty(cut.FindAll(".my-error"));
+        Assert.Contains("widget boom", cut.Find(".my-error").TextContent);
+        Assert.DoesNotContain("Widget error", cut.Markup);   // default replaced
+
+        // Recover callback resets the kit's ErrorBoundary (no throw).
+        cut.Find("button.my-retry").Click();
+    }
+
+    [Fact]
     public void Remove_Requires_A_Two_Step_Confirm()
     {
         Services.AddSingleton<IWidgetAccessControl, AllowAllWidgetAccessControl>();

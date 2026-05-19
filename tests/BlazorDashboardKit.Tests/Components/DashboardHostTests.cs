@@ -4,6 +4,7 @@ using BlazorDashboardKit.Models;
 using BlazorDashboardKit.Services;
 using BlazorDashboardKit.Stores;
 using Bunit;
+using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.JSInterop;
 using Xunit;
@@ -593,6 +594,71 @@ public class DashboardHostTests : TestContext
         var w2 = d.Widgets.First(w => w.Id == "w2");
         Assert.Equal(6, w2.ColumnSize);
         Assert.Equal(7, w2.Row);
+    }
+
+    [Fact]
+    public void EmptyTemplate_Override_Replaces_The_Default_Empty_State()
+    {
+        var js = new RecordingJsRuntime();
+        Services.AddSingleton<IDashboardStore>(new InMemoryDashboardStore());
+        Services.AddSingleton<IWidgetAccessControl, AllowAllWidgetAccessControl>();
+        Services.AddSingleton(new WidgetRegistry(Array.Empty<WidgetDescriptor>()));
+        Services.AddScoped<DashboardService>();
+        Services.AddScoped(_ => new DashboardJsInterop(js));
+
+        RenderFragment<BlazorDashboardKit.Components.EmptyDashboardContext> tpl = ctx => b =>
+        {
+            b.OpenElement(0, "div");
+            b.AddAttribute(1, "class", "my-empty");
+            b.AddContent(2, ctx.EditMode ? "edit-empty" : "view-empty");
+            b.CloseElement();
+        };
+
+        var cut = RenderComponent<BlazorDashboardKit.Components.DashboardHost>(p => p
+            .Add(x => x.OwnerKey, "owner-1")
+            .Add(x => x.EditMode, true)
+            .Add(x => x.EmptyTemplate, tpl));
+
+        Assert.NotEmpty(cut.FindAll(".my-empty"));
+        Assert.Contains("edit-empty", cut.Markup);
+        Assert.DoesNotContain("This dashboard is empty", cut.Markup);
+    }
+
+    [Fact]
+    public async Task WidgetUnavailableTemplate_Override_Replaces_The_Default_Placeholder()
+    {
+        var store = new InMemoryDashboardStore();
+        var c = new DashboardCollection { ActiveDashboardId = "d1" };
+        c.Dashboards.Add(new DashboardDefinition
+        {
+            Id = "d1",
+            Widgets = { new WidgetPlacement { Id = "g", WidgetType = "Ghost" } }
+        });
+        await store.SaveAsync("owner-1", c);
+
+        var js = new RecordingJsRuntime();
+        Services.AddSingleton<IDashboardStore>(store);
+        Services.AddSingleton<IWidgetAccessControl, AllowAllWidgetAccessControl>();
+        Services.AddSingleton(new WidgetRegistry(Array.Empty<WidgetDescriptor>())); // "Ghost" unknown
+        Services.AddScoped<DashboardService>();
+        Services.AddScoped(_ => new DashboardJsInterop(js));
+
+        RenderFragment<BlazorDashboardKit.Components.WidgetUnavailableContext> tpl = ctx => b =>
+        {
+            b.OpenElement(0, "div");
+            b.AddAttribute(1, "class", "my-unavailable");
+            b.AddContent(2, ctx.Placement.WidgetType);
+            b.CloseElement();
+        };
+
+        var cut = RenderComponent<BlazorDashboardKit.Components.DashboardHost>(p => p
+            .Add(x => x.OwnerKey, "owner-1")
+            .Add(x => x.EditMode, true)
+            .Add(x => x.WidgetUnavailableTemplate, tpl));
+        cut.WaitForState(() => cut.Markup.Contains("my-unavailable"), TimeSpan.FromSeconds(5));
+
+        Assert.Contains("Ghost", cut.Find(".my-unavailable").TextContent);
+        Assert.DoesNotContain("widget-unavailable", cut.Markup);
     }
 
     [Fact]
